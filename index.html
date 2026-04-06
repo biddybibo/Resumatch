@@ -13,7 +13,7 @@
       --surface: #0f0f1a;
       --border: #1e1e30;
       --text: #e0e0f0;
-      --muted: #55556a;
+      --muted: #9999aa;
       --accent: #00e5a0;
       --accent-dim: rgba(0,229,160,0.08);
       --accent-glow: rgba(0,229,160,0.25);
@@ -229,7 +229,15 @@
       width: 44px; height: 44px; border-radius: 10px;
       background: var(--accent-dim); border: 1px solid rgba(0,229,160,0.15);
       display: flex; align-items: center; justify-content: center;
-      font-size: 18px; margin-bottom: 20px;
+      margin-bottom: 20px;
+    }
+    .feature-icon svg {
+      width: 20px; height: 20px;
+      stroke: var(--accent);
+      fill: none;
+      stroke-width: 2;
+      stroke-linecap: round;
+      stroke-linejoin: round;
     }
     .feature-name {
       font-family: 'Syne', sans-serif; font-weight: 700;
@@ -381,7 +389,7 @@
   </h1>
   <p class="hero-sub">
     Paste your resume. Paste the job description.<br>
-    <span>Resumatch rewrites your keywords to match — honest, targeted, and ready to send.</span>
+    <span>Claude AI rewrites your keywords to match — honest, targeted, and ready to send.</span>
   </p>
   <div class="cta-wrap">
     <a href="#" class="cta-btn" onclick="goToApp(event)">
@@ -403,32 +411,44 @@
   <h2 class="section-title">Everything you need to<br><span>stand out</span></h2>
   <div class="features-grid">
     <div class="feature-card" data-delay="0">
-      <div class="feature-icon">🎯</div>
+      <div class="feature-icon">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>
+      </div>
       <div class="feature-name">Keyword Matching</div>
-      <div class="feature-desc">Resumatch scans the job description and rewrites your resume to naturally include the exact keywords recruiters and ATS systems look for.</div>
+      <div class="feature-desc">Claude scans the job description and rewrites your resume to naturally include the exact keywords recruiters and ATS systems look for.</div>
     </div>
     <div class="feature-card" data-delay="100">
-      <div class="feature-icon">📊</div>
+      <div class="feature-icon">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 3v18h18"/><path d="M18 17V9l-5 5-3-3-4 4"/></svg>
+      </div>
       <div class="feature-name">Match Score</div>
       <div class="feature-desc">Get a 0–100 relevance score showing how well your tailored resume aligns with the role before you even hit submit.</div>
     </div>
     <div class="feature-card" data-delay="200">
-      <div class="feature-icon">🔍</div>
+      <div class="feature-icon">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+      </div>
       <div class="feature-name">Change Log</div>
       <div class="feature-desc">See every single keyword swap — what changed, what replaced it, and exactly why — so you stay in full control of your story.</div>
     </div>
     <div class="feature-card" data-delay="300">
-      <div class="feature-icon">⚡</div>
+      <div class="feature-icon">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="m13 2-2 2.5L9 2 7 4.5 5 4l-.5 2.5L2 7l1 2-1 2 2.5.5L5 14l2-.5L9 16l2-2.5L13 16l2-2.5 2 .5.5-2.5L20 11l-1-2 1-2-2.5-.5L17 4l-2 .5L13 2z"/></svg>
+      </div>
       <div class="feature-name">Instant Results</div>
       <div class="feature-desc">No waiting, no signup, no friction. Paste and go. Your tailored resume is ready to copy in under 30 seconds.</div>
     </div>
     <div class="feature-card" data-delay="400">
-      <div class="feature-icon">🛡️</div>
+      <div class="feature-icon">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+      </div>
       <div class="feature-name">Always Honest</div>
       <div class="feature-desc">We only rephrase and reframe your existing experience — never fabricate. Your resume stays truthful, just optimized.</div>
     </div>
     <div class="feature-card" data-delay="500">
-      <div class="feature-icon">💡</div>
+      <div class="feature-icon">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M15 14c.2-1 .7-1.7 1.5-2.5 1-.9 1.5-2.2 1.5-3.5A6 6 0 0 0 6 8c0 1 .2 2.2 1.5 3.5.7.7 1.3 1.5 1.5 2.5"/><path d="M9 18h6"/><path d="M10 22h4"/></svg>
+      </div>
       <div class="feature-name">Gap Analysis</div>
       <div class="feature-desc">Surfaces missing keywords from the job post you should consider addressing, plus your existing strengths that already align.</div>
     </div>
@@ -452,14 +472,14 @@
         <div class="step-num">02</div>
         <div>
           <div class="step-title">Add the job description</div>
-          <div class="step-desc">Copy the full job posting — responsibilities, requirements, qualifications. The more detail, the better Resumatch can match your keywords.</div>
+          <div class="step-desc">Copy the full job posting — responsibilities, requirements, qualifications. The more detail, the better Claude can match your keywords.</div>
         </div>
       </div>
       <div class="step" data-step>
         <div class="step-num">03</div>
         <div>
           <div class="step-title">Get your tailored resume</div>
-          <div class="step-desc">Resumatch rewrites your resume with targeted keywords, gives you a match score, shows every change, and highlights what you're missing. Copy and send.</div>
+          <div class="step-desc">Claude rewrites your resume with targeted keywords, gives you a match score, shows every change, and highlights what you're missing. Copy and send.</div>
         </div>
       </div>
     </div>
@@ -503,7 +523,7 @@
   <span style="font-family:'Syne',sans-serif;font-weight:800;letter-spacing:2px;color:#fff;font-size:12px;">RESUMATCH</span>
   <span style="color:#2a2a3e;">·</span>
   <span>AI resume optimization</span>
-  <span style="margin-left:auto;">Resumatch AI</span>
+  <span style="margin-left:auto;">Built with Claude AI</span>
 </footer>
 
 <script>
