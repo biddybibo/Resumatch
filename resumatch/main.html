@@ -1,1 +1,195 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>RESUMATCH — AI Resume Tailor</title>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Mono:ital,wght@0,300;0,400;0,500;1,300&family=Syne:wght@700;800;900&display=swap" rel="stylesheet"/>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root { --bg:#08080f; --surface:#0f0f1a; --border:#1e1e30; --border-light:#2a2a3e; --text:#e0e0f0; --muted:#555570; --accent:#00e5a0; --warn:#f5c842; --danger:#ff6b6b; }
+    body { background:var(--bg); color:var(--text); font-family:'DM Mono',monospace; min-height:100vh; }
+    body::before { content:''; position:fixed; inset:0; background-image:url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.03'/%3E%3C/svg%3E"); pointer-events:none; z-index:0; }
+    nav { position:sticky; top:0; z-index:100; border-bottom:1px solid var(--border); background:rgba(8,8,15,0.85); backdrop-filter:blur(16px); padding:0 32px; height:56px; display:flex; align-items:center; gap:16px; }
+    .nav-dot { width:8px; height:8px; border-radius:50%; background:var(--accent); box-shadow:0 0 12px var(--accent); }
+    .nav-logo { font-family:'Syne',sans-serif; font-weight:900; font-size:17px; letter-spacing:3px; color:#fff; }
+    .nav-sub { color:var(--muted); font-size:11px; }
+    .nav-badge { margin-left:auto; background:rgba(0,229,160,0.08); border:1px solid rgba(0,229,160,0.2); color:var(--accent); font-size:10px; letter-spacing:1px; padding:4px 10px; border-radius:20px; }
+    .container { max-width:1080px; margin:0 auto; padding:40px 24px; position:relative; z-index:1; }
+    .hero { margin-bottom:40px; }
+    .hero h1 { font-family:'Syne',sans-serif; font-weight:900; font-size:clamp(28px,5vw,48px); line-height:1.1; letter-spacing:-1px; margin-bottom:12px; }
+    .hero h1 span { color:var(--accent); }
+    .hero p { color:var(--muted); font-size:13px; line-height:1.7; max-width:480px; }
+    .card { background:var(--surface); border:1px solid var(--border); border-radius:14px; }
+    .error-banner { background:rgba(255,107,107,0.08); border:1px solid rgba(255,107,107,0.3); color:var(--danger); border-radius:8px; padding:10px 16px; font-size:12px; margin-bottom:20px; display:none; }
+    .input-grid { display:grid; grid-template-columns:1fr 1fr; gap:20px; margin-bottom:28px; }
+    @media(max-width:700px){.input-grid{grid-template-columns:1fr;}.result-grid{grid-template-columns:1fr!important;}}
+    .input-card { padding:20px; }
+    .input-label { font-size:10px; letter-spacing:2px; color:var(--muted); margin-bottom:12px; font-weight:500; }
+    textarea { width:100%; min-height:320px; background:rgba(0,0,0,0.3); border:1px solid var(--border); border-radius:8px; color:#ccc; padding:14px; font-size:12px; line-height:1.75; font-family:'DM Mono',monospace; resize:vertical; transition:border-color 0.2s; }
+    textarea:focus { outline:none; border-color:var(--accent); }
+    textarea::placeholder { color:#333; }
+    .char-count { margin-top:6px; color:#333; font-size:11px; text-align:right; }
+    .btn-primary { display:block; margin:0 auto; background:var(--accent); color:#08080f; border:none; border-radius:10px; padding:14px 52px; font-family:'Syne',sans-serif; font-weight:800; font-size:14px; letter-spacing:1.5px; cursor:pointer; box-shadow:0 0 40px rgba(0,229,160,0.2); transition:transform 0.15s,box-shadow 0.15s; }
+    .btn-primary:hover { transform:scale(1.03); box-shadow:0 0 60px rgba(0,229,160,0.35); }
+    .btn-ghost { background:transparent; border:1px solid var(--border-light); color:var(--muted); border-radius:8px; padding:10px 28px; font-family:'DM Mono',monospace; font-size:11px; letter-spacing:1px; cursor:pointer; transition:border-color 0.2s,color 0.2s; }
+    .btn-ghost:hover { border-color:#888; color:#ccc; }
+    #loading-screen { display:none; flex-direction:column; align-items:center; justify-content:center; min-height:380px; gap:28px; }
+    .dots { display:flex; gap:10px; }
+    .dot { width:8px; height:8px; border-radius:50%; background:var(--accent); animation:pulse 1.6s ease-in-out infinite; }
+    .dot:nth-child(2){animation-delay:0.15s;}.dot:nth-child(3){animation-delay:0.3s;}.dot:nth-child(4){animation-delay:0.45s;}.dot:nth-child(5){animation-delay:0.6s;}
+    @keyframes pulse{0%,100%{opacity:0.2;transform:scale(0.8);}50%{opacity:1;transform:scale(1.1);}}
+    .loading-title { font-family:'Syne',sans-serif; font-weight:800; font-size:22px; letter-spacing:1px; }
+    .loading-sub { color:var(--muted); font-size:12px; }
+    #result-screen { display:none; }
+    .result-grid { display:grid; grid-template-columns:160px 1fr 1fr; gap:16px; margin-bottom:24px; }
+    .score-card { padding:24px 20px; display:flex; flex-direction:column; align-items:center; justify-content:center; }
+    .score-label { font-size:9px; letter-spacing:2px; color:var(--muted); margin-bottom:8px; }
+    .score-number { font-family:'Syne',sans-serif; font-weight:900; font-size:56px; line-height:1; }
+    .score-out { color:var(--muted); font-size:11px; margin-top:4px; }
+    .info-card { padding:20px; }
+    .info-title { font-size:9px; letter-spacing:2px; color:var(--muted); margin-bottom:14px; }
+    .strength-item { display:flex; gap:8px; align-items:flex-start; margin-bottom:8px; }
+    .strength-check { color:var(--accent); font-size:12px; margin-top:2px; flex-shrink:0; }
+    .strength-text { font-size:12px; color:#bbb; line-height:1.5; }
+    .keyword-tags { display:flex; flex-wrap:wrap; gap:8px; }
+    .keyword-tag { background:rgba(245,200,66,0.08); border:1px solid rgba(245,200,66,0.2); color:var(--warn); font-size:11px; padding:4px 10px; border-radius:20px; }
+    .tabs-wrapper { overflow:hidden; }
+    .tab-bar { border-bottom:1px solid var(--border); padding:10px 16px; display:flex; align-items:center; gap:4px; }
+    .tab-btn { background:none; border:none; cursor:pointer; color:var(--muted); font-family:'DM Mono',monospace; font-size:11px; letter-spacing:1px; padding:7px 16px; border-radius:6px; transition:all 0.2s; }
+    .tab-btn.active { background:var(--border); color:var(--text); }
+    .tab-spacer { flex:1; }
+    .copy-btn { background:var(--border); border:1px solid var(--border-light); color:var(--muted); font-family:'DM Mono',monospace; font-size:11px; letter-spacing:1px; padding:6px 14px; border-radius:6px; cursor:pointer; transition:all 0.2s; }
+    .copy-btn:hover { border-color:var(--accent); color:var(--accent); }
+    .copy-btn.copied { border-color:var(--accent); color:var(--accent); background:rgba(0,229,160,0.08); }
+    .tab-content { padding:24px; max-height:500px; overflow-y:auto; }
+    .tab-content::-webkit-scrollbar{width:5px;} .tab-content::-webkit-scrollbar-thumb{background:var(--border-light);border-radius:3px;}
+    #tab-tailored{display:block;} #tab-changes{display:none;}
+    pre { font-family:'DM Mono',monospace; font-size:12px; line-height:1.85; color:#ccc; white-space:pre-wrap; word-break:break-word; }
+    .change-item { background:rgba(0,0,0,0.3); border:1px solid var(--border); border-radius:10px; padding:16px; margin-bottom:14px; }
+    .change-row { display:grid; grid-template-columns:1fr 24px 1fr; gap:10px; align-items:center; margin-bottom:10px; }
+    .change-from { background:rgba(255,107,107,0.06); border:1px solid rgba(255,107,107,0.2); border-radius:6px; padding:8px 10px; font-size:11px; color:#ff9090; font-style:italic; word-break:break-word; }
+    .change-arrow { color:var(--muted); font-size:14px; text-align:center; }
+    .change-to { background:rgba(0,229,160,0.05); border:1px solid rgba(0,229,160,0.2); border-radius:6px; padding:8px 10px; font-size:11px; color:var(--accent); word-break:break-word; }
+    .change-reason { font-size:11px; color:#555; }
+    .result-footer { display:flex; justify-content:center; margin-top:28px; }
+    .fade-in { animation:fadeIn 0.45s ease both; }
+    @keyframes fadeIn{from{opacity:0;transform:translateY(14px);}to{opacity:1;transform:translateY(0);}}
+  </style>
+</head>
+<body>
+<nav>
+  <div class="nav-dot"></div>
+  <span class="nav-logo">RESUMATCH</span>
+  <span class="nav-sub">// AI keyword optimizer</span>
 
+</nav>
+<div class="container">
+  <div id="input-screen">
+    <div class="hero fade-in">
+      <h1>Tailor your resume.<br><span>Land the interview.</span></h1>
+      <p>Paste your resume and the job description. Claude rewrites your keywords to match — keeping it honest, making it hit.</p>
+    </div>
+    <div class="error-banner" id="error-banner">⚠ <span id="error-msg"></span></div>
+    <div class="input-grid fade-in">
+      <div class="card input-card">
+        <div class="input-label">YOUR RESUME</div>
+        <textarea id="resume-input" placeholder="Paste your current resume here...&#10;&#10;• Work experience&#10;• Skills&#10;• Education&#10;• Accomplishments" oninput="updateCount('resume-input','resume-count')"></textarea>
+        <div class="char-count"><span id="resume-count">0</span> chars</div>
+      </div>
+      <div class="card input-card">
+        <div class="input-label">JOB DESCRIPTION</div>
+        <textarea id="job-input" placeholder="Paste the job posting here...&#10;&#10;• Responsibilities&#10;• Required qualifications&#10;• Preferred skills&#10;• About the company" oninput="updateCount('job-input','job-count')"></textarea>
+        <div class="char-count"><span id="job-count">0</span> chars</div>
+      </div>
+    </div>
+    <button class="btn-primary fade-in" onclick="analyze()">ANALYZE & TAILOR →</button>
+  </div>
+  <div id="loading-screen">
+    <div class="dots"><div class="dot"></div><div class="dot"></div><div class="dot"></div><div class="dot"></div><div class="dot"></div></div>
+    <div class="loading-title">Analyzing your resume</div>
+    <div class="loading-sub">Matching keywords · Scoring relevance · Rewriting for impact</div>
+  </div>
+  <div id="result-screen">
+    <div class="result-grid fade-in">
+      <div class="card score-card">
+        <div class="score-label">MATCH SCORE</div>
+        <div class="score-number" id="score-number">—</div>
+        <div class="score-out">out of 100</div>
+      </div>
+      <div class="card info-card">
+        <div class="info-title">STRENGTHS DETECTED</div>
+        <div id="strengths-list"></div>
+      </div>
+      <div class="card info-card">
+        <div class="info-title">KEYWORDS TO ADDRESS</div>
+        <div class="keyword-tags" id="keywords-list"></div>
+      </div>
+    </div>
+    <div class="card tabs-wrapper fade-in">
+      <div class="tab-bar">
+        <button class="tab-btn active" onclick="switchTab('tailored',this)">TAILORED RESUME</button>
+        <button class="tab-btn" onclick="switchTab('changes',this)" id="changes-tab-btn">CHANGES</button>
+        <div class="tab-spacer"></div>
+        <button class="copy-btn" id="copy-btn" onclick="copyResume()">COPY</button>
+      </div>
+      <div class="tab-content">
+        <div id="tab-tailored"><pre id="tailored-text"></pre></div>
+        <div id="tab-changes"></div>
+      </div>
+    </div>
+    <div class="result-footer fade-in">
+      <button class="btn-ghost" onclick="reset()">← START OVER</button>
+    </div>
+  </div>
+</div>
+<script>
+  function updateCount(a,b){document.getElementById(b).textContent=document.getElementById(a).value.length;}
+  function showError(m){document.getElementById('error-msg').textContent=m;document.getElementById('error-banner').style.display='block';}
+  function hideError(){document.getElementById('error-banner').style.display='none';}
+  function setScreen(s){document.getElementById('input-screen').style.display=s==='input'?'block':'none';document.getElementById('loading-screen').style.display=s==='loading'?'flex':'none';document.getElementById('result-screen').style.display=s==='result'?'block':'none';}
+  function scoreColor(s){return s>=80?'#00e5a0':s>=60?'#f5c842':'#ff6b6b';}
+  async function analyze(){
+    const resume=document.getElementById('resume-input').value.trim();
+    const job=document.getElementById('job-input').value.trim();
+    hideError();
+    if(!resume||!job){showError('Please fill in both fields before analyzing.');return;}
+    setScreen('loading');
+    try{
+      const res=await fetch('/api/tailor',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({resume,jobDescription:job})});
+      if(!res.ok)throw new Error();
+      const parsed=await res.json();
+      renderResult(parsed);
+    }catch(e){setScreen('input');showError('Something went wrong. Please try again.');}
+  }
+  function renderResult(r){
+    const el=document.getElementById('score-number');
+    el.textContent=r.matchScore;el.style.color=scoreColor(r.matchScore);
+    document.getElementById('strengths-list').innerHTML=(r.strengths||[]).map(s=>`<div class="strength-item"><span class="strength-check">✓</span><span class="strength-text">${s}</span></div>`).join('');
+    document.getElementById('keywords-list').innerHTML=(r.missingKeywords||[]).map(k=>`<span class="keyword-tag">${k}</span>`).join('');
+    document.getElementById('tailored-text').textContent=r.tailoredResume||'';
+    document.getElementById('changes-tab-btn').textContent=`CHANGES (${(r.changes||[]).length})`;
+    document.getElementById('tab-changes').innerHTML=(r.changes||[]).map(c=>`<div class="change-item"><div class="change-row"><div class="change-from">"${c.original}"</div><div class="change-arrow">→</div><div class="change-to">"${c.replacement}"</div></div><div class="change-reason"><span>WHY: </span>${c.reason}</div></div>`).join('');
+    setScreen('result');
+  }
+  function switchTab(tab,btn){
+    document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));btn.classList.add('active');
+    document.getElementById('tab-tailored').style.display=tab==='tailored'?'block':'none';
+    document.getElementById('tab-changes').style.display=tab==='changes'?'block':'none';
+    document.getElementById('copy-btn').style.display=tab==='tailored'?'inline-block':'none';
+  }
+  function copyResume(){
+    navigator.clipboard.writeText(document.getElementById('tailored-text').textContent);
+    const btn=document.getElementById('copy-btn');btn.textContent='✓ COPIED';btn.classList.add('copied');
+    setTimeout(()=>{btn.textContent='COPY';btn.classList.remove('copied');},2000);
+  }
+  function reset(){
+    document.getElementById('resume-input').value='';document.getElementById('job-input').value='';
+    document.getElementById('resume-count').textContent='0';document.getElementById('job-count').textContent='0';
+    document.querySelectorAll('.tab-btn').forEach((b,i)=>b.classList.toggle('active',i===0));
+    document.getElementById('tab-tailored').style.display='block';document.getElementById('tab-changes').style.display='none';
+    document.getElementById('copy-btn').style.display='inline-block';hideError();setScreen('input');
+  }
+</script>
+</body>
+</html>
