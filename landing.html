@@ -1,0 +1,576 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>RESUMATCH — AI Resume Tailor</title>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Mono:ital,wght@0,300;0,400;0,500;1,300&family=Syne:wght@700;800;900&display=swap" rel="stylesheet"/>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg: #08080f;
+      --surface: #0f0f1a;
+      --border: #1e1e30;
+      --text: #e0e0f0;
+      --muted: #55556a;
+      --accent: #00e5a0;
+      --accent-dim: rgba(0,229,160,0.08);
+      --accent-glow: rgba(0,229,160,0.25);
+    }
+
+    html { scroll-behavior: smooth; }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'DM Mono', monospace;
+      min-height: 100vh;
+      overflow-x: hidden;
+      cursor: none;
+    }
+
+    /* CUSTOM CURSOR */
+    .cursor {
+      position: fixed; width: 10px; height: 10px;
+      background: var(--accent); border-radius: 50%;
+      pointer-events: none; z-index: 9999;
+      transform: translate(-50%, -50%);
+      transition: transform 0.1s, width 0.2s, height 0.2s, opacity 0.2s;
+      mix-blend-mode: screen;
+    }
+    .cursor-ring {
+      position: fixed; width: 36px; height: 36px;
+      border: 1px solid rgba(0,229,160,0.4); border-radius: 50%;
+      pointer-events: none; z-index: 9998;
+      transform: translate(-50%, -50%);
+      transition: transform 0.12s ease, width 0.25s, height 0.25s;
+    }
+
+    /* GRAIN */
+    body::after {
+      content: '';
+      position: fixed; inset: 0;
+      background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 512 512' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.75' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.04'/%3E%3C/svg%3E");
+      pointer-events: none; z-index: 1000;
+    }
+
+    /* GRID BACKGROUND */
+    body::before {
+      content: '';
+      position: fixed; inset: 0;
+      background-image:
+        linear-gradient(rgba(0,229,160,0.03) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(0,229,160,0.03) 1px, transparent 1px);
+      background-size: 60px 60px;
+      pointer-events: none;
+    }
+
+    /* NAV */
+    nav {
+      position: fixed; top: 0; left: 0; right: 0; z-index: 500;
+      height: 60px; padding: 0 40px;
+      display: flex; align-items: center; gap: 14px;
+      border-bottom: 1px solid rgba(255,255,255,0.04);
+      background: rgba(8,8,15,0.7);
+      backdrop-filter: blur(20px);
+      animation: slideDown 0.8s ease both;
+    }
+    @keyframes slideDown { from { opacity:0; transform:translateY(-20px); } to { opacity:1; transform:translateY(0); } }
+
+    .nav-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--accent); box-shadow: 0 0 16px var(--accent); animation: dotPulse 2s ease-in-out infinite; }
+    @keyframes dotPulse { 0%,100%{box-shadow:0 0 8px var(--accent);} 50%{box-shadow:0 0 24px var(--accent), 0 0 48px var(--accent-glow);} }
+
+    .nav-logo { font-family: 'Syne', sans-serif; font-weight: 900; font-size: 16px; letter-spacing: 3px; color: #fff; }
+    .nav-spacer { flex: 1; }
+    .nav-cta {
+      background: transparent; border: 1px solid rgba(0,229,160,0.3);
+      color: var(--accent); font-family: 'DM Mono', monospace;
+      font-size: 11px; letter-spacing: 1.5px;
+      padding: 8px 20px; border-radius: 6px; cursor: none;
+      transition: all 0.25s;
+      text-decoration: none;
+    }
+    .nav-cta:hover { background: var(--accent-dim); border-color: var(--accent); box-shadow: 0 0 20px var(--accent-glow); }
+
+    /* HERO */
+    .hero {
+      min-height: 100vh;
+      display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
+      text-align: center;
+      padding: 100px 24px 60px;
+      position: relative;
+    }
+
+    /* Radial glow behind hero */
+    .hero-glow {
+      position: absolute;
+      width: 600px; height: 600px;
+      background: radial-gradient(circle, rgba(0,229,160,0.06) 0%, transparent 70%);
+      top: 50%; left: 50%; transform: translate(-50%, -55%);
+      pointer-events: none;
+      animation: glowPulse 4s ease-in-out infinite;
+    }
+    @keyframes glowPulse { 0%,100%{opacity:0.6;} 50%{opacity:1;} }
+
+    .hero-eyebrow {
+      display: inline-flex; align-items: center; gap: 8px;
+      background: var(--accent-dim); border: 1px solid rgba(0,229,160,0.2);
+      color: var(--accent); font-size: 10px; letter-spacing: 2px;
+      padding: 6px 14px; border-radius: 20px; margin-bottom: 36px;
+      animation: fadeUp 0.9s 0.2s ease both;
+    }
+    .eyebrow-dot { width: 5px; height: 5px; border-radius: 50%; background: var(--accent); animation: dotPulse 1.5s infinite; }
+
+    .hero-title {
+      font-family: 'Syne', sans-serif; font-weight: 900;
+      font-size: clamp(44px, 9vw, 96px);
+      line-height: 0.95; letter-spacing: -3px;
+      margin-bottom: 28px;
+      animation: fadeUp 0.9s 0.35s ease both;
+    }
+    .hero-title .line2 { color: var(--accent); display: block; }
+    .hero-title .line3 { color: rgba(255,255,255,0.25); display: block; font-size: clamp(32px,6vw,64px); letter-spacing: -2px; margin-top: 8px; }
+
+    .hero-sub {
+      color: var(--muted); font-size: 14px; line-height: 1.8;
+      max-width: 420px; margin-bottom: 52px;
+      animation: fadeUp 0.9s 0.5s ease both;
+    }
+    .hero-sub span { color: rgba(224,224,240,0.6); }
+
+    /* BIG CTA BUTTON */
+    .cta-wrap { animation: fadeUp 0.9s 0.65s ease both; position: relative; margin-bottom: 80px; }
+
+    .cta-btn {
+      display: inline-flex; align-items: center; gap: 14px;
+      background: var(--accent); color: #08080f;
+      font-family: 'Syne', sans-serif; font-weight: 900;
+      font-size: 16px; letter-spacing: 2px;
+      padding: 20px 52px; border-radius: 12px;
+      text-decoration: none; cursor: none;
+      position: relative; overflow: hidden;
+      box-shadow: 0 0 0 0 var(--accent-glow);
+      transition: transform 0.2s, box-shadow 0.2s;
+    }
+    .cta-btn::before {
+      content: '';
+      position: absolute; inset: 0;
+      background: linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.15) 50%, transparent 100%);
+      transform: translateX(-100%);
+      transition: transform 0.5s ease;
+    }
+    .cta-btn:hover::before { transform: translateX(100%); }
+    .cta-btn:hover { transform: scale(1.04); box-shadow: 0 0 60px var(--accent-glow), 0 20px 60px rgba(0,229,160,0.15); }
+    .cta-btn:active { transform: scale(0.98); }
+
+    .cta-arrow {
+      width: 28px; height: 28px; background: rgba(0,0,0,0.15);
+      border-radius: 50%; display: flex; align-items: center; justify-content: center;
+      font-size: 14px; transition: transform 0.2s;
+    }
+    .cta-btn:hover .cta-arrow { transform: translateX(4px); }
+
+    .cta-sub { margin-top: 14px; color: var(--muted); font-size: 11px; letter-spacing: 0.5px; }
+
+    /* SCROLL HINT */
+    .scroll-hint {
+      position: relative; margin-top: 48px;
+      display: flex; flex-direction: column; align-items: center; gap: 12px;
+      color: var(--accent); font-size: 13px; letter-spacing: 3px; font-weight: 500;
+      animation: fadeUp 1s 1.4s ease both;
+    }
+    .scroll-line {
+      width: 2px; height: 56px;
+      background: linear-gradient(to bottom, var(--accent), transparent);
+      animation: scrollLine 1.8s ease-in-out infinite;
+    }
+    @keyframes scrollLine { 0%{opacity:0;transform:scaleY(0);transform-origin:top;} 50%{opacity:1;transform:scaleY(1);} 100%{opacity:0;transform:scaleY(1);transform-origin:bottom;} }
+
+    /* FEATURES SECTION */
+    .features {
+      padding: 80px 24px 120px;
+      max-width: 1080px; margin: 0 auto;
+    }
+
+    .section-label {
+      font-size: 10px; letter-spacing: 3px; color: var(--accent);
+      margin-bottom: 20px; text-align: center;
+    }
+    .section-title {
+      font-family: 'Syne', sans-serif; font-weight: 800;
+      font-size: clamp(28px, 4vw, 44px); text-align: center;
+      letter-spacing: -1px; margin-bottom: 64px; line-height: 1.1;
+    }
+    .section-title span { color: var(--accent); }
+
+    .features-grid {
+      display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px;
+    }
+    @media(max-width:768px) { .features-grid { grid-template-columns: 1fr; } }
+
+    .feature-card {
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: 16px; padding: 32px 28px;
+      transition: border-color 0.3s, transform 0.3s, box-shadow 0.3s;
+      opacity: 0; transform: translateY(30px);
+    }
+    .feature-card.visible {
+      animation: fadeUp 0.7s ease both;
+    }
+    .feature-card:hover {
+      border-color: rgba(0,229,160,0.25);
+      transform: translateY(-4px);
+      box-shadow: 0 20px 60px rgba(0,0,0,0.4);
+    }
+
+    .feature-icon {
+      width: 44px; height: 44px; border-radius: 10px;
+      background: var(--accent-dim); border: 1px solid rgba(0,229,160,0.15);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 18px; margin-bottom: 20px;
+    }
+    .feature-name {
+      font-family: 'Syne', sans-serif; font-weight: 700;
+      font-size: 16px; margin-bottom: 10px; letter-spacing: -0.5px;
+    }
+    .feature-desc { color: var(--muted); font-size: 12px; line-height: 1.75; }
+
+    /* HOW IT WORKS */
+    .how {
+      padding: 120px 24px;
+      background: linear-gradient(180deg, transparent, rgba(0,229,160,0.02), transparent);
+      border-top: 1px solid var(--border);
+      border-bottom: 1px solid var(--border);
+    }
+    .how-inner { max-width: 800px; margin: 0 auto; }
+
+    .steps { display: flex; flex-direction: column; gap: 0; margin-top: 60px; }
+
+    .step {
+      display: grid; grid-template-columns: 60px 1fr; gap: 24px;
+      align-items: flex-start; padding: 32px 0;
+      border-bottom: 1px solid var(--border);
+      opacity: 0; transform: translateX(-20px);
+      transition: opacity 0.6s, transform 0.6s;
+    }
+    .step:last-child { border-bottom: none; }
+    .step.visible { opacity: 1; transform: translateX(0); }
+
+    .step-num {
+      font-family: 'Syne', sans-serif; font-weight: 900;
+      font-size: 13px; letter-spacing: 2px; color: var(--accent);
+      background: var(--accent-dim); border: 1px solid rgba(0,229,160,0.15);
+      width: 44px; height: 44px; border-radius: 10px;
+      display: flex; align-items: center; justify-content: center;
+      flex-shrink: 0; margin-top: 4px;
+    }
+    .step-title { font-family: 'Syne', sans-serif; font-weight: 700; font-size: 18px; margin-bottom: 8px; letter-spacing: -0.5px; }
+    .step-desc { color: var(--muted); font-size: 12px; line-height: 1.8; }
+
+    /* STATS */
+    .stats {
+      padding: 120px 24px;
+      max-width: 900px; margin: 0 auto;
+      text-align: center;
+    }
+    .stats-grid { display: grid; grid-template-columns: repeat(3,1fr); gap: 40px; margin-top: 64px; }
+    @media(max-width:600px){ .stats-grid { grid-template-columns: 1fr; } }
+
+    .stat-item { opacity: 0; transform: translateY(20px); transition: opacity 0.6s, transform 0.6s; }
+    .stat-item.visible { opacity: 1; transform: translateY(0); }
+
+    .stat-num {
+      font-family: 'Syne', sans-serif; font-weight: 900;
+      font-size: 56px; color: var(--accent); line-height: 1;
+      letter-spacing: -2px; margin-bottom: 10px;
+    }
+    .stat-label { color: var(--muted); font-size: 11px; letter-spacing: 1px; }
+
+    /* BOTTOM CTA */
+    .bottom-cta {
+      padding: 140px 24px;
+      text-align: center;
+      position: relative;
+    }
+    .bottom-glow {
+      position: absolute; width: 500px; height: 500px;
+      background: radial-gradient(circle, rgba(0,229,160,0.05) 0%, transparent 70%);
+      top: 50%; left: 50%; transform: translate(-50%,-50%);
+      pointer-events: none;
+    }
+    .bottom-cta h2 {
+      font-family: 'Syne', sans-serif; font-weight: 900;
+      font-size: clamp(32px, 6vw, 64px); letter-spacing: -2px;
+      line-height: 1.05; margin-bottom: 20px;
+    }
+    .bottom-cta h2 span { color: var(--accent); }
+    .bottom-cta p { color: var(--muted); font-size: 13px; margin-bottom: 48px; }
+
+    /* FOOTER */
+    footer {
+      border-top: 1px solid var(--border);
+      padding: 28px 40px;
+      display: flex; align-items: center; gap: 10px;
+      color: var(--muted); font-size: 11px;
+    }
+    footer .nav-dot { width: 5px; height: 5px; flex-shrink: 0; }
+
+    /* PAGE TRANSITION OVERLAY */
+    .transition-overlay {
+      position: fixed; inset: 0; z-index: 9000;
+      background: var(--bg);
+      transform: scaleY(0); transform-origin: bottom;
+      pointer-events: none;
+    }
+    .transition-overlay.go {
+      animation: curtainUp 0.7s cubic-bezier(0.76, 0, 0.24, 1) both;
+    }
+    @keyframes curtainUp {
+      0%  { transform: scaleY(0); transform-origin: bottom; }
+      50% { transform: scaleY(1); transform-origin: bottom; }
+      51% { transform-origin: top; }
+      100%{ transform: scaleY(0); transform-origin: top; }
+    }
+    .transition-logo {
+      position: fixed; top: 50%; left: 50%; transform: translate(-50%,-50%);
+      z-index: 9001; pointer-events: none;
+      font-family: 'Syne', sans-serif; font-weight: 900;
+      font-size: 24px; letter-spacing: 4px; color: var(--accent);
+      opacity: 0;
+    }
+    .transition-logo.go { animation: logoFlash 0.7s ease both; }
+    @keyframes logoFlash {
+      0%   { opacity:0; }
+      30%  { opacity:1; }
+      70%  { opacity:1; }
+      100% { opacity:0; }
+    }
+
+    /* UTILS */
+    @keyframes fadeUp { from{opacity:0;transform:translateY(24px);}to{opacity:1;transform:translateY(0);} }
+  </style>
+</head>
+<body>
+
+<!-- Cursor -->
+<div class="cursor" id="cursor"></div>
+<div class="cursor-ring" id="cursorRing"></div>
+
+<!-- Transition overlay -->
+<div class="transition-overlay" id="overlay"></div>
+<div class="transition-logo" id="transLogo">RESUMATCH</div>
+
+<!-- NAV -->
+<nav>
+  <div class="nav-dot"></div>
+  <span class="nav-logo">RESUMATCH</span>
+  <div class="nav-spacer"></div>
+  <a href="#" class="nav-cta" onclick="goToApp(event)">LAUNCH APP</a>
+</nav>
+
+<!-- HERO -->
+<section class="hero">
+  <div class="hero-glow"></div>
+  <div class="hero-eyebrow"><span class="eyebrow-dot"></span> AI-POWERED RESUME OPTIMIZATION</div>
+  <h1 class="hero-title">
+    GET THE<br>
+    <span class="line2">INTERVIEW.</span>
+    <span class="line3">not the rejection.</span>
+  </h1>
+  <p class="hero-sub">
+    Paste your resume. Paste the job description.<br>
+    <span>Resumatch rewrites your keywords to match — honest, targeted, and ready to send.</span>
+  </p>
+  <div class="cta-wrap">
+    <a href="#" class="cta-btn" onclick="goToApp(event)">
+      TAILOR MY RESUME
+      <span class="cta-arrow">→</span>
+    </a>
+    <div class="cta-sub">Free to use &nbsp;·&nbsp; No account needed &nbsp;·&nbsp; Results in seconds</div>
+    
+    <div class="scroll-hint">
+      <span>SCROLL</span>
+      <div class="scroll-line"></div>
+    </div>
+  </div>
+</section>
+
+<!-- FEATURES -->
+<section class="features">
+  <div class="section-label">WHAT YOU GET</div>
+  <h2 class="section-title">Everything you need to<br><span>stand out</span></h2>
+  <div class="features-grid">
+    <div class="feature-card" data-delay="0">
+      <div class="feature-icon">🎯</div>
+      <div class="feature-name">Keyword Matching</div>
+      <div class="feature-desc">Resumatch scans the job description and rewrites your resume to naturally include the exact keywords recruiters and ATS systems look for.</div>
+    </div>
+    <div class="feature-card" data-delay="100">
+      <div class="feature-icon">📊</div>
+      <div class="feature-name">Match Score</div>
+      <div class="feature-desc">Get a 0–100 relevance score showing how well your tailored resume aligns with the role before you even hit submit.</div>
+    </div>
+    <div class="feature-card" data-delay="200">
+      <div class="feature-icon">🔍</div>
+      <div class="feature-name">Change Log</div>
+      <div class="feature-desc">See every single keyword swap — what changed, what replaced it, and exactly why — so you stay in full control of your story.</div>
+    </div>
+    <div class="feature-card" data-delay="300">
+      <div class="feature-icon">⚡</div>
+      <div class="feature-name">Instant Results</div>
+      <div class="feature-desc">No waiting, no signup, no friction. Paste and go. Your tailored resume is ready to copy in under 30 seconds.</div>
+    </div>
+    <div class="feature-card" data-delay="400">
+      <div class="feature-icon">🛡️</div>
+      <div class="feature-name">Always Honest</div>
+      <div class="feature-desc">We only rephrase and reframe your existing experience — never fabricate. Your resume stays truthful, just optimized.</div>
+    </div>
+    <div class="feature-card" data-delay="500">
+      <div class="feature-icon">💡</div>
+      <div class="feature-name">Gap Analysis</div>
+      <div class="feature-desc">Surfaces missing keywords from the job post you should consider addressing, plus your existing strengths that already align.</div>
+    </div>
+  </div>
+</section>
+
+<!-- HOW IT WORKS -->
+<section class="how">
+  <div class="how-inner">
+    <div class="section-label">HOW IT WORKS</div>
+    <h2 class="section-title" style="text-align:left">Three steps.<br><span>One interview.</span></h2>
+    <div class="steps">
+      <div class="step" data-step>
+        <div class="step-num">01</div>
+        <div>
+          <div class="step-title">Paste your resume</div>
+          <div class="step-desc">Drop in your current resume — any format, any length. No special formatting required. Just raw text works perfectly.</div>
+        </div>
+      </div>
+      <div class="step" data-step>
+        <div class="step-num">02</div>
+        <div>
+          <div class="step-title">Add the job description</div>
+          <div class="step-desc">Copy the full job posting — responsibilities, requirements, qualifications. The more detail, the better Resumatch can match your keywords.</div>
+        </div>
+      </div>
+      <div class="step" data-step>
+        <div class="step-num">03</div>
+        <div>
+          <div class="step-title">Get your tailored resume</div>
+          <div class="step-desc">Resumatch rewrites your resume with targeted keywords, gives you a match score, shows every change, and highlights what you're missing. Copy and send.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- STATS -->
+<section class="stats">
+  <div class="section-label">BY THE NUMBERS</div>
+  <h2 class="section-title">Resumes that get <span>noticed</span></h2>
+  <div class="stats-grid">
+    <div class="stat-item" data-stat>
+      <div class="stat-num">75%</div>
+      <div class="stat-label">OF RESUMES REJECTED BY ATS<br>BEFORE HUMAN REVIEW</div>
+    </div>
+    <div class="stat-item" data-stat style="transition-delay:0.15s">
+      <div class="stat-num">3×</div>
+      <div class="stat-label">MORE INTERVIEWS WITH<br>KEYWORD-OPTIMIZED RESUMES</div>
+    </div>
+    <div class="stat-item" data-stat style="transition-delay:0.3s">
+      <div class="stat-num">30s</div>
+      <div class="stat-label">AVERAGE TIME TO TAILOR<br>YOUR RESUME WITH AI</div>
+    </div>
+  </div>
+</section>
+
+<!-- BOTTOM CTA -->
+<section class="bottom-cta">
+  <div class="bottom-glow"></div>
+  <h2>Ready to land<br><span>the interview?</span></h2>
+  <p>No account. No credit card. Just paste and go.</p>
+  <a href="#" class="cta-btn" onclick="goToApp(event)" style="display:inline-flex;">
+    START TAILORING NOW
+    <span class="cta-arrow">→</span>
+  </a>
+</section>
+
+<!-- FOOTER -->
+<footer>
+  <div class="nav-dot"></div>
+  <span style="font-family:'Syne',sans-serif;font-weight:800;letter-spacing:2px;color:#fff;font-size:12px;">RESUMATCH</span>
+  <span style="color:#2a2a3e;">·</span>
+  <span>AI resume optimization</span>
+  <span style="margin-left:auto;">Resumatch AI</span>
+</footer>
+
+<script>
+  // Custom cursor
+  const cursor = document.getElementById('cursor');
+  const ring = document.getElementById('cursorRing');
+  let mx = 0, my = 0, rx = 0, ry = 0;
+
+  document.addEventListener('mousemove', e => {
+    mx = e.clientX; my = e.clientY;
+    cursor.style.left = mx + 'px';
+    cursor.style.top = my + 'px';
+  });
+
+  // Smooth ring follow
+  function animRing() {
+    rx += (mx - rx) * 0.12;
+    ry += (my - ry) * 0.12;
+    ring.style.left = rx + 'px';
+    ring.style.top = ry + 'px';
+    requestAnimationFrame(animRing);
+  }
+  animRing();
+
+  // Cursor expand on hover
+  document.querySelectorAll('a, button').forEach(el => {
+    el.addEventListener('mouseenter', () => {
+      cursor.style.width = '20px';
+      cursor.style.height = '20px';
+      ring.style.width = '56px';
+      ring.style.height = '56px';
+    });
+    el.addEventListener('mouseleave', () => {
+      cursor.style.width = '10px';
+      cursor.style.height = '10px';
+      ring.style.width = '36px';
+      ring.style.height = '36px';
+    });
+  });
+
+  // Page transition to app
+  function goToApp(e) {
+    e.preventDefault();
+    const overlay = document.getElementById('overlay');
+    const logo = document.getElementById('transLogo');
+    overlay.classList.add('go');
+    logo.classList.add('go');
+    setTimeout(() => { window.location.href = 'app.html'; }, 680);
+  }
+
+  // Intersection observer for scroll animations
+  const observer = new IntersectionObserver((entries) => {
+    entries.forEach(entry => {
+      if (entry.isIntersecting) {
+        const el = entry.target;
+        const delay = el.dataset.delay ? parseInt(el.dataset.delay) : 0;
+        setTimeout(() => {
+          el.classList.add('visible');
+          el.style.opacity = '';
+          el.style.transform = '';
+        }, delay);
+        observer.unobserve(el);
+      }
+    });
+  }, { threshold: 0.15 });
+
+  document.querySelectorAll('.feature-card, [data-step], [data-stat]').forEach(el => observer.observe(el));
+</script>
+</body>
+</html>
