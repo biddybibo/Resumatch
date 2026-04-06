@@ -1,0 +1,7 @@
+{
+  "functions": {
+    "api/tailor.js": {
+      "maxDuration": 30
+    }
+  }
+}
