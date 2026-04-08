@@ -2,6 +2,23 @@ import Anthropic from '@anthropic-ai/sdk';
 
 const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 
+function repairJSON(str) {
+  let result = str;
+  const opens = [];
+  let inString = false, escape = false;
+  for (const ch of result) {
+    if (escape) { escape = false; continue; }
+    if (ch === '\\' && inString) { escape = true; continue; }
+    if (ch === '"') { inString = !inString; continue; }
+    if (inString) continue;
+    if (ch === '{' || ch === '[') opens.push(ch === '{' ? '}' : ']');
+    if (ch === '}' || ch === ']') opens.pop();
+  }
+  if (inString) result += '"';
+  while (opens.length) result += opens.pop();
+  return result;
+}
+
 export default async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
@@ -18,7 +35,7 @@ export default async function handler(req, res) {
 
     const stream = anthropic.messages.stream({
       model: 'claude-sonnet-4-5',
-      max_tokens: 2500,
+      max_tokens: 3500,
       messages: [{
         role: 'user',
         content: `You are an expert resume optimizer specializing in ATS (Applicant Tracking System) optimization and authentic, human-sounding professional writing.
@@ -51,6 +68,8 @@ Please provide your response in the following JSON format:
   ]
 }
 
+Limit changes to the 5 most impactful. Keep each change reason under 20 words.
+
 EXAMPLES OF GOOD VS BAD CHANGES:
 ❌ BAD: "Spearheaded cross-functional initiatives to drive synergistic outcomes"
 ✅ GOOD: "Led team of 5 to launch new feature, increasing user engagement by 30%"
@@ -74,10 +93,10 @@ Focus on making every change meaningful, measurable where possible, and sounding
 
     // Parse and send final result
     const stripped = fullText.replace(/```json\s*/gi, '').replace(/```/g, '');
-    const jsonMatch = stripped.match(/\{[\s\S]*\}/);
+    const jsonMatch = stripped.match(/\{[\s\S]*/);
     if (!jsonMatch) throw new Error('Failed to parse AI response');
 
-    const result = JSON.parse(jsonMatch[0]);
+    const result = JSON.parse(repairJSON(jsonMatch[0]));
     res.write(`data: ${JSON.stringify({ done: true, result })}\n\n`);
     res.end();
   } catch (error) {
