@@ -308,13 +308,20 @@
     setScreen('loading');
     try{
       const res=await fetch('/api/tailor',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({resume,jobDescription:job})});
-      if(!res.ok){
-        let msg='Something went wrong. Please try again.';
-        try{const d=await res.json();if(d?.error)msg=d.error;}catch(_){}
-        throw new Error(msg);
+      if(!res.ok){throw new Error('Something went wrong. Please try again.');}
+      const reader=res.body.getReader();
+      const decoder=new TextDecoder();
+      while(true){
+        const {done,value}=await reader.read();
+        if(done)break;
+        const lines=decoder.decode(value).split('\n');
+        for(const line of lines){
+          if(!line.startsWith('data: '))continue;
+          const msg=JSON.parse(line.slice(6));
+          if(msg.error)throw new Error(msg.error);
+          if(msg.done)renderResult(msg.result);
+        }
       }
-      const parsed=await res.json();
-      renderResult(parsed);
     }catch(e){setScreen('input');showError(e.message||'Something went wrong. Please try again.');}
   }
   function renderResult(r){
