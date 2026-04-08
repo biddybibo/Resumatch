@@ -82,8 +82,8 @@
 
   let isSignUp = false;
 
-  // If already logged in, redirect
-  sb.auth.getSession().then(({ data: { session } }) => {
+  // Handle OAuth callback and existing sessions
+  sb.auth.onAuthStateChange((event, session) => {
     if (session) window.location.href = '/app';
   });
 
@@ -116,7 +116,7 @@
   async function googleSignIn() {
     const { error } = await sb.auth.signInWithOAuth({
       provider: 'google',
-      options: { redirectTo: window.location.origin + '/app' }
+      options: { redirectTo: window.location.origin + '/login' }
     });
     if (error) showError(error.message);
   }

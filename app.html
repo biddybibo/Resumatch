@@ -240,9 +240,19 @@
 
   // Auth check on page load
   (async () => {
-    const { data } = await sb.auth.getSession();
-    session = data.session;
-    if (!session) { window.location.href = '/login'; return; }
+    const { data: { session: existingSession } } = await sb.auth.getSession();
+    if (!existingSession) {
+      // Wait briefly for OAuth hash to be processed
+      await new Promise(resolve => {
+        const { data: { subscription } } = sb.auth.onAuthStateChange((event, s) => {
+          if (s) { session = s; subscription.unsubscribe(); resolve(); }
+        });
+        setTimeout(() => { subscription.unsubscribe(); resolve(); }, 1500);
+      });
+      if (!session) { window.location.href = '/login'; return; }
+    } else {
+      session = existingSession;
+    }
     // Load profile
     const { data: p } = await sb.from('profiles').select('*').eq('id', session.user.id).single();
     profile = p;
