@@ -81,10 +81,14 @@
   const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
   let isSignUp = false;
+  let redirecting = false;
 
   // Handle OAuth callback and existing sessions
   sb.auth.onAuthStateChange((event, session) => {
-    if (session) window.location.href = '/app';
+    if (session && !redirecting) {
+      redirecting = true;
+      window.location.replace('/app');
+    }
   });
 
   function toggleMode() {
