@@ -15,7 +15,26 @@
     .nav-dot { width:8px; height:8px; border-radius:50%; background:var(--accent); box-shadow:0 0 12px var(--accent); }
     .nav-logo { font-family:'Syne',sans-serif; font-weight:900; font-size:17px; letter-spacing:3px; color:#fff; }
     .nav-sub { color:var(--muted); font-size:11px; }
-    .nav-badge { margin-left:auto; background:rgba(0,229,160,0.08); border:1px solid rgba(0,229,160,0.2); color:var(--accent); font-size:10px; letter-spacing:1px; padding:4px 10px; border-radius:20px; }
+    .nav-right { margin-left:auto; display:flex; align-items:center; gap:12px; }
+    .nav-badge { background:rgba(0,229,160,0.08); border:1px solid rgba(0,229,160,0.2); color:var(--accent); font-size:10px; letter-spacing:1px; padding:4px 10px; border-radius:20px; }
+    .nav-usage { color:var(--muted); font-size:10px; letter-spacing:0.5px; }
+    .nav-upgrade { background:var(--accent); color:#08080f; border:none; font-family:'DM Mono',monospace; font-size:10px; font-weight:700; letter-spacing:1px; padding:6px 14px; border-radius:6px; cursor:pointer; transition:all 0.2s; }
+    .nav-upgrade:hover { box-shadow:0 0 20px rgba(0,229,160,0.3); }
+    .nav-logout { background:none; border:1px solid var(--border-light); color:var(--muted); font-family:'DM Mono',monospace; font-size:10px; padding:5px 12px; border-radius:6px; cursor:pointer; transition:all 0.2s; }
+    .nav-logout:hover { border-color:#888; color:#ccc; }
+    /* Paywall modal */
+    .modal-overlay { display:none; position:fixed; inset:0; background:rgba(0,0,0,0.7); z-index:200; align-items:center; justify-content:center; backdrop-filter:blur(4px); }
+    .modal-overlay.show { display:flex; }
+    .modal { background:var(--surface); border:1px solid var(--border); border-radius:16px; padding:40px 36px; max-width:420px; width:90%; text-align:center; }
+    .modal h2 { font-family:'Syne',sans-serif; font-weight:900; font-size:22px; margin-bottom:12px; }
+    .modal h2 span { color:var(--accent); }
+    .modal p { color:var(--muted); font-size:12px; line-height:1.7; margin-bottom:24px; }
+    .modal .price { font-family:'Syne',sans-serif; font-weight:900; font-size:36px; color:var(--accent); margin-bottom:4px; }
+    .modal .price-sub { color:var(--muted); font-size:11px; margin-bottom:28px; }
+    .modal-cta { width:100%; background:var(--accent); color:#08080f; border:none; border-radius:10px; padding:14px; font-family:'Syne',sans-serif; font-weight:800; font-size:14px; letter-spacing:1.5px; cursor:pointer; transition:transform 0.15s; margin-bottom:12px; }
+    .modal-cta:hover { transform:scale(1.02); }
+    .modal-close { background:none; border:none; color:var(--muted); font-family:'DM Mono',monospace; font-size:11px; cursor:pointer; padding:8px; }
+    .modal-close:hover { color:var(--text); }
     .container { max-width:1080px; margin:0 auto; padding:40px 24px; position:relative; z-index:1; }
     .hero { margin-bottom:40px; }
     .hero h1 { font-family:'Syne',sans-serif; font-weight:900; font-size:clamp(28px,5vw,48px); line-height:1.1; letter-spacing:-1px; margin-bottom:12px; }
@@ -112,8 +131,23 @@
   <div class="nav-dot"></div>
   <a href="/" class="nav-logo" style="text-decoration:none;color:inherit;">RESUMATCH</a>
   <span class="nav-sub">// AI keyword optimizer</span>
-
+  <div class="nav-right">
+    <span class="nav-usage" id="nav-usage"></span>
+    <button class="nav-upgrade" id="nav-upgrade" onclick="upgrade()" style="display:none;">UPGRADE</button>
+    <button class="nav-logout" onclick="logout()">LOG OUT</button>
+  </div>
 </nav>
+<!-- Paywall Modal -->
+<div class="modal-overlay" id="paywall-modal">
+  <div class="modal">
+    <h2>Go <span>unlimited</span></h2>
+    <p>You've used your 3 free resume tailors. Upgrade to Pro for unlimited tailoring with AI-powered resume search.</p>
+    <div class="price">$3.99</div>
+    <div class="price-sub">per month · cancel anytime</div>
+    <button class="modal-cta" onclick="upgrade()">UPGRADE TO PRO</button>
+    <button class="modal-close" onclick="closePaywall()">maybe later</button>
+  </div>
+</div>
 <div class="container">
   <div id="input-screen">
     <div class="hero fade-in">
@@ -195,7 +229,68 @@
     </div>
   </div>
 </div>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script>
+  const SUPABASE_URL = 'https://owqkwpiytuwcxpqlmktc.supabase.co';
+  const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im93cWt3cGl5dHV3Y3hwcWxta3RjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU2MTk0MDksImV4cCI6MjA5MTE5NTQwOX0.u0W75OV7LrgT3XWVlM55mfuvGX_zCujxtholxNtYikM';
+  const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+  let session = null;
+  let profile = null;
+
+  // Auth check on page load
+  (async () => {
+    const { data } = await sb.auth.getSession();
+    session = data.session;
+    if (!session) { window.location.href = '/login'; return; }
+    // Load profile
+    const { data: p } = await sb.from('profiles').select('*').eq('id', session.user.id).single();
+    profile = p;
+    updateNavUsage();
+    // Check for upgrade success
+    if (new URLSearchParams(window.location.search).get('upgraded') === 'true') {
+      window.history.replaceState({}, '', '/app');
+      // Refresh profile after short delay for webhook to process
+      setTimeout(async () => {
+        const { data: p2 } = await sb.from('profiles').select('*').eq('id', session.user.id).single();
+        profile = p2;
+        updateNavUsage();
+      }, 2000);
+    }
+  })();
+
+  function updateNavUsage() {
+    if (!profile) return;
+    const usage = document.getElementById('nav-usage');
+    const upgradeBtn = document.getElementById('nav-upgrade');
+    if (profile.subscription_status === 'active') {
+      usage.textContent = 'PRO · unlimited';
+      upgradeBtn.style.display = 'none';
+    } else {
+      const remaining = Math.max(0, 3 - profile.tailor_count);
+      usage.textContent = `${remaining}/3 free`;
+      upgradeBtn.style.display = remaining === 0 ? 'inline-block' : 'none';
+    }
+  }
+
+  function showPaywall() { document.getElementById('paywall-modal').classList.add('show'); }
+  function closePaywall() { document.getElementById('paywall-modal').classList.remove('show'); }
+
+  async function upgrade() {
+    if (!session) return;
+    const res = await fetch('/api/stripe-checkout', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session.access_token}` }
+    });
+    const { url } = await res.json();
+    if (url) window.location.href = url;
+  }
+
+  async function logout() {
+    await sb.auth.signOut();
+    window.location.href = '/';
+  }
+
   function updateCount(a,b){document.getElementById(b).textContent=document.getElementById(a).value.length;}
   function showError(m){document.getElementById('error-msg').textContent=m;document.getElementById('error-banner').style.display='block';}
   function hideError(){document.getElementById('error-banner').style.display='none';}
@@ -327,9 +422,14 @@
     const job=document.getElementById('job-input').value.trim();
     hideError();
     if(!resume||!job){showError('Please fill in both fields before analyzing.');return;}
+    if(!session){window.location.href='/login';return;}
+    // Check free limit before sending
+    if(profile && profile.subscription_status!=='active' && profile.tailor_count>=3){showPaywall();return;}
     setScreen('loading');
+    document.getElementById('loading-sub').textContent='Matching keywords · Scoring relevance · Rewriting for impact';
     try{
-      const res=await fetch('/api/tailor',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({resume,jobDescription:job})});
+      const res=await fetch('/api/tailor',{method:'POST',headers:{'Content-Type':'application/json','Authorization':`Bearer ${session.access_token}`},body:JSON.stringify({resume,jobDescription:job})});
+      if(res.status===403){const d=await res.json();if(d.error==='FREE_LIMIT_REACHED'){setScreen('input');showPaywall();return;}}
       if(!res.ok){throw new Error('Something went wrong. Please try again.');}
       const reader=res.body.getReader();
       const decoder=new TextDecoder();
@@ -345,7 +445,12 @@
           const msg=JSON.parse(line.slice(6));
           if(msg.error)throw new Error(msg.error);
           if(msg.partial&&msg.chars)document.getElementById('loading-sub').textContent=`Writing · ${msg.chars} characters generated...`;
-          if(msg.done)renderResult(msg.result);
+          if(msg.done){
+            // Update local profile count
+            if(profile) profile.tailor_count++;
+            updateNavUsage();
+            renderResult(msg.result);
+          }
         }
       }
     }catch(e){setScreen('input');showError(e.message||'Something went wrong. Please try again.');}

@@ -5,8 +5,10 @@
   "type": "module",
   "dependencies": {
     "@anthropic-ai/sdk": "^0.32.1",
+    "@supabase/supabase-js": "^2.49.1",
     "formidable": "^3.5.1",
+    "mammoth": "^1.8.0",
     "pdf-parse": "^1.1.1",
-    "mammoth": "^1.8.0"
+    "stripe": "^17.5.0"
   }
 }
