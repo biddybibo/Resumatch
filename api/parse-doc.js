@@ -15,8 +15,8 @@ export default async function handler(req, res) {
 
   try {
     const form = formidable({});
-    const [fields, files] = await form.parse(req);
-    
+    const [, files] = await form.parse(req);
+
     const file = files.file?.[0];
     if (!file) {
       return res.status(400).json({ error: 'No file uploaded' });
@@ -24,13 +24,13 @@ export default async function handler(req, res) {
 
     // Read the DOC/DOCX file
     const result = await mammoth.extractRawText({ path: file.filepath });
-    
+
     // Clean up temporary file
     await fs.unlink(file.filepath);
-    
+
     return res.status(200).json({ text: result.value });
   } catch (error) {
     console.error('Document parsing error:', error);
-    return res.status(500).json({ error: 'Failed to parse document' });
+    return res.status(500).json({ error: error.message });
   }
 }
