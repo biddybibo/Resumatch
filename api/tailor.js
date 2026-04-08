@@ -27,7 +27,7 @@ export default async function handler(req, res) {
 
   // Set up SSE so the connection streams instead of timing out
   res.setHeader('Content-Type', 'text/event-stream');
-  res.setHeader('Cache-Control', 'no-cache');
+  res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate');
   res.setHeader('Connection', 'keep-alive');
 
   try {
@@ -67,8 +67,6 @@ Please provide your response in the following JSON format:
     }
   ]
 }
-
-Limit changes to the 5 most impactful. Keep each change reason under 20 words.
 
 EXAMPLES OF GOOD VS BAD CHANGES:
 ❌ BAD: "Spearheaded cross-functional initiatives to drive synergistic outcomes"
