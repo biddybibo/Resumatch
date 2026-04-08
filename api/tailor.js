@@ -17,7 +17,7 @@ export default async function handler(req, res) {
 
   try {
     const message = await anthropic.messages.create({
-      model: 'claude-sonnet-4-5',,
+      model: 'claude-sonnet-4-5',
       max_tokens: 4000,
       messages: [
         {
@@ -68,18 +68,19 @@ Focus on making every change meaningful, measurable where possible, and sounding
     });
 
     const content = message.content[0].text;
-    
-    // Extract JSON from the response
-    const jsonMatch = content.match(/\{[\s\S]*\}/);
+
+    // Strip markdown code fences if present, then extract JSON
+    const stripped = content.replace(/```json\s*/gi, '').replace(/```/g, '');
+    const jsonMatch = stripped.match(/\{[\s\S]*\}/);
     if (!jsonMatch) {
-      throw new Error('Failed to parse response');
+      throw new Error('Failed to parse response from AI');
     }
 
     const result = JSON.parse(jsonMatch[0]);
-    
+
     return res.status(200).json(result);
   } catch (error) {
     console.error('Error:', error);
-    return res.status(500).json({ error: 'Failed to process resume' });
+    return res.status(500).json({ error: error.message });
   }
 }
