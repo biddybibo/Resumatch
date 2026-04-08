@@ -1,0 +1,274 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Privacy Policy — Resumatch</title>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg: #0a0a0f;
+      --surface: #111118;
+      --border: rgba(255,255,255,0.07);
+      --accent: #6c63ff;
+      --accent-soft: rgba(108,99,255,0.12);
+      --text: #e8e8f0;
+      --muted: #7a7a96;
+      --heading: #ffffff;
+    }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'DM Sans', sans-serif;
+      font-weight: 300;
+      line-height: 1.8;
+      min-height: 100vh;
+    }
+
+    /* Subtle background grain */
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.03'/%3E%3C/svg%3E");
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    nav {
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 1.25rem 2rem;
+      background: rgba(10,10,15,0.85);
+      backdrop-filter: blur(12px);
+      border-bottom: 1px solid var(--border);
+    }
+
+    .logo {
+      font-family: 'DM Serif Display', serif;
+      font-size: 1.3rem;
+      color: var(--heading);
+      text-decoration: none;
+      letter-spacing: -0.02em;
+    }
+
+    .logo span { color: var(--accent); }
+
+    nav a.back {
+      font-size: 0.8rem;
+      font-weight: 500;
+      color: var(--muted);
+      text-decoration: none;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      transition: color 0.2s;
+    }
+    nav a.back:hover { color: var(--text); }
+
+    .container {
+      position: relative;
+      z-index: 1;
+      max-width: 720px;
+      margin: 0 auto;
+      padding: 5rem 2rem 6rem;
+    }
+
+    .badge {
+      display: inline-block;
+      font-size: 0.7rem;
+      font-weight: 500;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--accent);
+      background: var(--accent-soft);
+      border: 1px solid rgba(108,99,255,0.25);
+      padding: 0.3rem 0.75rem;
+      border-radius: 2rem;
+      margin-bottom: 1.5rem;
+    }
+
+    h1 {
+      font-family: 'DM Serif Display', serif;
+      font-size: clamp(2.2rem, 5vw, 3.2rem);
+      color: var(--heading);
+      letter-spacing: -0.03em;
+      line-height: 1.15;
+      margin-bottom: 1rem;
+    }
+
+    .meta {
+      font-size: 0.82rem;
+      color: var(--muted);
+      margin-bottom: 3.5rem;
+      padding-bottom: 2rem;
+      border-bottom: 1px solid var(--border);
+    }
+
+    section {
+      margin-bottom: 3rem;
+    }
+
+    h2 {
+      font-family: 'DM Serif Display', serif;
+      font-size: 1.3rem;
+      color: var(--heading);
+      letter-spacing: -0.02em;
+      margin-bottom: 0.75rem;
+    }
+
+    p {
+      color: var(--text);
+      font-size: 0.95rem;
+      margin-bottom: 0.75rem;
+    }
+
+    ul {
+      list-style: none;
+      padding: 0;
+      margin: 0.5rem 0 0.75rem;
+    }
+
+    ul li {
+      font-size: 0.95rem;
+      color: var(--text);
+      padding: 0.35rem 0 0.35rem 1.25rem;
+      position: relative;
+    }
+
+    ul li::before {
+      content: '—';
+      position: absolute;
+      left: 0;
+      color: var(--accent);
+    }
+
+    a {
+      color: var(--accent);
+      text-decoration: none;
+    }
+    a:hover { text-decoration: underline; }
+
+    .divider {
+      height: 1px;
+      background: var(--border);
+      margin: 2.5rem 0;
+    }
+
+    footer {
+      position: relative;
+      z-index: 1;
+      text-align: center;
+      padding: 2rem;
+      font-size: 0.78rem;
+      color: var(--muted);
+      border-top: 1px solid var(--border);
+    }
+  </style>
+</head>
+<body>
+
+  <nav>
+    <a href="/" class="logo">Resu<span>match</span></a>
+    <a href="/" class="back">← Home</a>
+  </nav>
+
+  <div class="container">
+    <div class="badge">Legal</div>
+    <h1>Privacy Policy</h1>
+    <p class="meta">Last updated: June 2025 &nbsp;·&nbsp; Resumatch (resumatch.help)</p>
+
+    <section>
+      <h2>Overview</h2>
+      <p>Resumatch ("we," "us," or "our") is an AI-powered resume tailoring tool. We take your privacy seriously. This policy explains what data we collect, how we use it, and your rights around that data.</p>
+    </section>
+
+    <div class="divider"></div>
+
+    <section>
+      <h2>What We Collect</h2>
+      <p>When you use Resumatch, we may collect:</p>
+      <ul>
+        <li>Your email address (via Google sign-in)</li>
+        <li>Resume content you upload or paste into the app</li>
+        <li>Job descriptions you provide for tailoring</li>
+        <li>Usage data (pages visited, features used) for improving the product</li>
+      </ul>
+      <p>We do not collect payment information directly — payments are handled by Stripe.</p>
+    </section>
+
+    <div class="divider"></div>
+
+    <section>
+      <h2>How We Use Your Data</h2>
+      <ul>
+        <li>To generate tailored resumes using AI</li>
+        <li>To authenticate your account and manage your session</li>
+        <li>To improve the product based on usage patterns</li>
+        <li>To send transactional emails (e.g. account confirmation)</li>
+      </ul>
+      <p>We do not sell your data to third parties. We do not use your resume content for advertising.</p>
+    </section>
+
+    <div class="divider"></div>
+
+    <section>
+      <h2>Third-Party Services</h2>
+      <p>Resumatch uses the following third-party services to operate:</p>
+      <ul>
+        <li><strong>Supabase</strong> — authentication and database</li>
+        <li><strong>Anthropic / OpenAI</strong> — AI processing of resume content</li>
+        <li><strong>Stripe</strong> — subscription billing</li>
+        <li><strong>Vercel</strong> — hosting and infrastructure</li>
+      </ul>
+      <p>Each of these services has their own privacy policy governing how they handle data.</p>
+    </section>
+
+    <div class="divider"></div>
+
+    <section>
+      <h2>Data Retention</h2>
+      <p>We retain your account data for as long as your account is active. Resume content is processed in real time and is not stored permanently unless you explicitly save it within the app.</p>
+    </section>
+
+    <div class="divider"></div>
+
+    <section>
+      <h2>Your Rights</h2>
+      <p>You have the right to:</p>
+      <ul>
+        <li>Access the data we hold about you</li>
+        <li>Request deletion of your account and associated data</li>
+        <li>Opt out of any non-essential communications</li>
+      </ul>
+      <p>To exercise any of these rights, email us at <a href="mailto:admin@resumatch.help">admin@resumatch.help</a>.</p>
+    </section>
+
+    <div class="divider"></div>
+
+    <section>
+      <h2>Security</h2>
+      <p>We use industry-standard security practices including encrypted connections (HTTPS), secure authentication via Supabase, and environment-variable-protected API keys. No system is perfectly secure, but we take reasonable steps to protect your data.</p>
+    </section>
+
+    <div class="divider"></div>
+
+    <section>
+      <h2>Contact</h2>
+      <p>Questions or concerns? Reach out at <a href="mailto:admin@resumatch.help">admin@resumatch.help</a>.</p>
+    </section>
+
+  </div>
+
+  <footer>
+    © 2025 Resumatch · <a href="/privacy">Privacy</a> · <a href="/terms">Terms</a>
+  </footer>
+
+</body>
+</html>
