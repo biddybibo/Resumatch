@@ -1,13 +1,13 @@
 {
   "functions": {
     "api/tailor.js": {
-      "maxDuration": 10
+      "maxDuration": 60
     },
     "api/parse-pdf.js": {
-      "maxDuration": 10
+      "maxDuration": 30
     },
     "api/parse-doc.js": {
-      "maxDuration": 10
+      "maxDuration": 30
     }
   },
   "headers": [
