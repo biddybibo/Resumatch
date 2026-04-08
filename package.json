@@ -1,0 +1,12 @@
+{
+  "name": "resumatch",
+  "version": "1.0.0",
+  "description": "AI-powered resume optimization tool",
+  "type": "module",
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.32.1",
+    "formidable": "^3.5.1",
+    "pdf-parse": "^1.1.1",
+    "mammoth": "^1.8.0"
+  }
+}
