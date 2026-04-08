@@ -15,72 +15,69 @@ export default async function handler(req, res) {
     return res.status(400).json({ error: 'Missing resume or job description' });
   }
 
+  // Truncate inputs to keep token count low and avoid timeouts
+  const resumeTruncated = resume.slice(0, 6000);
+  const jobTruncated = jobDescription.slice(0, 3000);
+
   try {
+    // NOTE: Vercel Hobby plan hard-caps serverless functions at 10 seconds.
+    // Use claude-haiku (fastest model) + low max_tokens to stay under the limit.
+    // To use Sonnet: upgrade to Vercel Pro and set maxDuration: 60 in vercel.json.
     const message = await anthropic.messages.create({
-      model: 'claude-sonnet-4-5',
-      max_tokens: 4000,
+      model: 'claude-haiku-4-5-20251001',
+      max_tokens: 2048,
       messages: [
         {
           role: 'user',
-          content: `You are an expert resume optimizer specializing in ATS (Applicant Tracking System) optimization and authentic, human-sounding professional writing.
+          content: `You are an expert resume optimizer for ATS systems. Be concise.
 
-CRITICAL RULES:
-1. AVOID AI-GENERATED JARGON: Never use buzzwords like "spearheaded," "leveraged," "synergized," "orchestrated," "championed," "pioneered," or other obviously AI-generated corporate speak. Use clear, direct language instead.
-2. ADD QUANTIFIABLE ACHIEVEMENTS: When possible, replace vague statements with specific numbers, percentages, timeframes, or measurable outcomes. If the original resume lacks metrics, suggest realistic placeholders in [brackets] that the user should fill in.
-3. MAINTAIN HONESTY: Only work with what's already in the resume. Never fabricate experience, skills, or accomplishments.
-4. KEYWORD MATCHING: Naturally incorporate keywords from the job description where they genuinely fit the candidate's experience.
-5. HUMAN VOICE: Write in clear, professional language that sounds like a real person wrote it, not an AI or corporate template.
+RULES:
+1. No AI jargon (no "spearheaded", "leveraged", "synergized", "championed", "pioneered")
+2. Add quantifiable metrics where possible. Use [X] placeholders if unknown.
+3. Only work with what's in the resume — no fabrication.
+4. Naturally weave in job description keywords where they genuinely fit.
+5. Sound like a real human wrote it.
 
-ORIGINAL RESUME:
-${resume}
+RESUME:
+${resumeTruncated}
 
 JOB DESCRIPTION:
-${jobDescription}
+${jobTruncated}
 
-Please provide your response in the following JSON format:
+Respond ONLY with a valid JSON object — no markdown, no code fences, no commentary:
 {
-  "matchScore": <number 0-100>,
-  "strengths": [<list of 3-5 strengths already present that align with the job>],
-  "missingKeywords": [<list of 3-5 important keywords from job description not in resume>],
-  "tailoredResume": "<the optimized resume text with anti-AI-jargon and quantifiable metrics where possible>",
+  "matchScore": <0-100>,
+  "strengths": [<3-5 strings: strengths in resume matching the job>],
+  "missingKeywords": [<3-5 strings: important JD keywords absent from resume>],
+  "tailoredResume": "<full optimized resume as a single string>",
   "changes": [
-    {
-      "original": "<original text>",
-      "replacement": "<new text>",
-      "reason": "<why this change was made: keyword match, removed jargon, added metrics, etc.>"
-    }
+    { "original": "<old phrase>", "replacement": "<new phrase>", "reason": "<why>" }
   ]
-}
-
-EXAMPLES OF GOOD VS BAD CHANGES:
-❌ BAD: "Spearheaded cross-functional initiatives to drive synergistic outcomes"
-✅ GOOD: "Led team of 5 to launch new feature, increasing user engagement by 30%"
-
-❌ BAD: "Leveraged cutting-edge technologies to optimize performance"
-✅ GOOD: "Improved page load time from 3s to 0.8s using React optimization techniques"
-
-❌ BAD: "Championed strategic vision across multiple stakeholders"
-✅ GOOD: "Coordinated with product, design, and engineering teams to deliver Q3 roadmap"
-
-Focus on making every change meaningful, measurable where possible, and sounding authentically human.`,
+}`,
         },
       ],
     });
 
     const content = message.content[0].text;
 
-    // Strip markdown code fences if present, then extract JSON
-    const stripped = content.replace(/```json\s*/gi, '').replace(/```/g, '');
+    // Strip markdown code fences if the model adds them anyway
+    const stripped = content.replace(/```json\s*/gi, '').replace(/```/g, '').trim();
     const jsonMatch = stripped.match(/\{[\s\S]*\}/);
     if (!jsonMatch) {
-      throw new Error('Failed to parse response from AI');
+      throw new Error('Could not extract JSON from AI response');
     }
 
     const result = JSON.parse(jsonMatch[0]);
-
     return res.status(200).json(result);
   } catch (error) {
     console.error('Error:', error);
-    return res.status(500).json({ error: error.message });
+
+    const msg = error.message || 'Unknown error';
+    const isTimeout = msg.toLowerCase().includes('timeout') || msg.includes('504');
+    return res.status(500).json({
+      error: isTimeout
+        ? 'Request timed out. Try shortening your resume or job description.'
+        : msg,
+    });
   }
 }
