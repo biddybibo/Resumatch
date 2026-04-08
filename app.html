@@ -308,10 +308,14 @@
     setScreen('loading');
     try{
       const res=await fetch('/api/tailor',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({resume,jobDescription:job})});
-      if(!res.ok)throw new Error();
+      if(!res.ok){
+        let msg='Something went wrong. Please try again.';
+        try{const d=await res.json();if(d?.error)msg=d.error;}catch(_){}
+        throw new Error(msg);
+      }
       const parsed=await res.json();
       renderResult(parsed);
-    }catch(e){setScreen('input');showError('Something went wrong. Please try again.');}
+    }catch(e){setScreen('input');showError(e.message||'Something went wrong. Please try again.');}
   }
   function renderResult(r){
     const el=document.getElementById('score-number');
