@@ -138,7 +138,7 @@
   <div id="loading-screen">
     <div class="dots"><div class="dot"></div><div class="dot"></div><div class="dot"></div><div class="dot"></div><div class="dot"></div></div>
     <div class="loading-title">Analyzing your resume</div>
-    <div class="loading-sub">Matching keywords · Scoring relevance · Rewriting for impact</div>
+    <div class="loading-sub" id="loading-sub">Matching keywords · Scoring relevance · Rewriting for impact</div>
   </div>
   <div id="result-screen">
     <div class="result-grid fade-in">
@@ -322,6 +322,7 @@
           if(!line.startsWith('data: '))continue;
           const msg=JSON.parse(line.slice(6));
           if(msg.error)throw new Error(msg.error);
+          if(msg.partial&&msg.chars)document.getElementById('loading-sub').textContent=`Writing · ${msg.chars} characters generated...`;
           if(msg.done)renderResult(msg.result);
         }
       }

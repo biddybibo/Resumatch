@@ -18,7 +18,7 @@ export default async function handler(req, res) {
 
     const stream = anthropic.messages.stream({
       model: 'claude-sonnet-4-5',
-      max_tokens: 4000,
+      max_tokens: 2500,
       messages: [{
         role: 'user',
         content: `You are an expert resume optimizer specializing in ATS (Applicant Tracking System) optimization and authentic, human-sounding professional writing.
@@ -68,8 +68,7 @@ Focus on making every change meaningful, measurable where possible, and sounding
     for await (const chunk of stream) {
       if (chunk.type === 'content_block_delta' && chunk.delta?.text) {
         fullText += chunk.delta.text;
-        // Send progress to keep connection alive
-        res.write(`data: ${JSON.stringify({ partial: true })}\n\n`);
+        res.write(`data: ${JSON.stringify({ partial: true, chars: fullText.length })}\n\n`);
       }
     }
 
