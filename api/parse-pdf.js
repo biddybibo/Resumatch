@@ -1,12 +1,19 @@
 import formidable from 'formidable';
 import fs from 'fs/promises';
-import { getDocument } from 'pdfjs-dist/legacy/build/pdf.mjs';
 
 export const config = {
   api: {
     bodyParser: false,
   },
 };
+
+// Workaround: pdf-parse tries to load a test file on import which breaks
+// in Vercel serverless. Importing the internal module directly avoids that.
+async function parsePdfBuffer(buffer) {
+  const { default: pdfParse } = await import('pdf-parse/lib/pdf-parse.js');
+  const data = await pdfParse(buffer);
+  return data.text;
+}
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
@@ -22,21 +29,9 @@ export default async function handler(req, res) {
       return res.status(400).json({ error: 'No file uploaded' });
     }
 
-    // Read the PDF file
     const dataBuffer = await fs.readFile(file.filepath);
-    const uint8 = new Uint8Array(dataBuffer);
+    const text = await parsePdfBuffer(dataBuffer);
 
-    // Parse PDF using pdfjs-dist (works in Vercel serverless)
-    const pdf = await getDocument({ data: uint8 }).promise;
-
-    let text = '';
-    for (let i = 1; i <= pdf.numPages; i++) {
-      const page = await pdf.getPage(i);
-      const content = await page.getTextContent();
-      text += content.items.map(item => item.str).join(' ') + '\n';
-    }
-
-    // Clean up temporary file
     await fs.unlink(file.filepath);
 
     return res.status(200).json({ text });
