@@ -1,13 +1,23 @@
 {
   "functions": {
     "api/tailor.js": {
-      "maxDuration": 30
+      "maxDuration": 10
     },
     "api/parse-pdf.js": {
-      "maxDuration": 30
+      "maxDuration": 10
     },
     "api/parse-doc.js": {
-      "maxDuration": 30
+      "maxDuration": 10
     }
-  }
+  },
+  "headers": [
+    {
+      "source": "/api/(.*)",
+      "headers": [
+        { "key": "Access-Control-Allow-Origin", "value": "*" },
+        { "key": "Access-Control-Allow-Methods", "value": "POST, OPTIONS" },
+        { "key": "Access-Control-Allow-Headers", "value": "Content-Type" }
+      ]
+    }
+  ]
 }
