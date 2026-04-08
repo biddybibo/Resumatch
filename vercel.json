@@ -2,6 +2,12 @@
   "functions": {
     "api/tailor.js": {
       "maxDuration": 30
+    },
+    "api/parse-pdf.js": {
+      "maxDuration": 30
+    },
+    "api/parse-doc.js": {
+      "maxDuration": 30
     }
   }
 }
