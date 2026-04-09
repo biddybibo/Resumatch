@@ -526,11 +526,23 @@
       if (i === nameIdx) { tokens.push({ t: 'name', v: tr }); continue; }
       if (i === contactIdx) { tokens.push({ t: 'contact', v: tr }); continue; }
 
+      // Skip separator lines made of repeated symbols (%, -, =, etc.)
+      if (/^[%\-=_*#~]{3,}$/.test(tr)) { tokens.push({ t: 'gap' }); continue; }
+
       if (sectionRe.test(tr)) { curSection = tr; tokens.push({ t: 'section', v: tr }); continue; }
 
       if (bulletRe.test(tr)) { tokens.push({ t: 'bullet', v: tr.replace(bulletRe, '') }); continue; }
 
       // Two-column line (org/position with date or location on right)
+      // Also split on em-dash separating org from location: "Company — City, ST"
+      const dashSplit = tr.match(/^(.+?)\s*[—–]\s*([A-Z].{2,})$/);
+      if (dashSplit && !dateRe.test(tr)) {
+        const left = dashSplit[1].trim(), right = dashSplit[2].trim();
+        const allCaps = left === left.toUpperCase() && /[A-Z]/.test(left);
+        tokens.push(allCaps ? { t: 'org', left, right } : { t: 'sub', left, right });
+        continue;
+      }
+
       const twoParts = tr.match(/^(.+?)\s{2,}(.+)$/);
       if (twoParts) {
         const left = twoParts[1].trim(), right = twoParts[2].trim();
@@ -577,7 +589,7 @@
         if (tk.t === 'gap') { h += 2; continue; }
         if (tk.t === 'name') { h += sz * 2; continue; }
         if (tk.t === 'contact') { h += sz * 1.3; continue; }
-        if (tk.t === 'section') { h += sz * 1.8; continue; }
+        if (tk.t === 'section') { h += sz * 1.12 * 1.6; continue; }
         if (tk.t === 'org') {
           h += lh;
           if (tk.sub) h += lh;
@@ -639,8 +651,8 @@
 
         case 'section':
           y += 3;
-          doc.setFont('times', 'normal');
-          doc.setFontSize(sz);
+          doc.setFont('times', 'bold');
+          doc.setFontSize(sz * 1.12);
           doc.text(tk.v, mL, y);
           y += 2;
           doc.setDrawColor(0);
