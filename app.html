@@ -217,6 +217,7 @@
         <button class="tab-btn active" onclick="switchTab('tailored',this)">TAILORED RESUME</button>
         <button class="tab-btn" onclick="switchTab('changes',this)" id="changes-tab-btn">CHANGES</button>
         <div class="tab-spacer"></div>
+        <button class="copy-btn" id="download-btn" onclick="downloadPDF()">↓ PDF</button>
         <button class="copy-btn" id="copy-btn" onclick="copyResume()">COPY</button>
       </div>
       <div class="tab-content">
@@ -230,6 +231,7 @@
   </div>
 </div>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.2/jspdf.umd.min.js"></script>
 <script>
   const SUPABASE_URL = 'https://owqkwpiytuwcxpqlmktc.supabase.co';
   const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im93cWt3cGl5dHV3Y3hwcWxta3RjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU2MTk0MDksImV4cCI6MjA5MTE5NTQwOX0.u0W75OV7LrgT3XWVlM55mfuvGX_zCujxtholxNtYikM';
@@ -470,12 +472,168 @@
     document.getElementById('tab-tailored').style.display=tab==='tailored'?'block':'none';
     document.getElementById('tab-changes').style.display=tab==='changes'?'block':'none';
     document.getElementById('copy-btn').style.display=tab==='tailored'?'inline-block':'none';
+    document.getElementById('download-btn').style.display=tab==='tailored'?'inline-block':'none';
   }
   function copyResume(){
     navigator.clipboard.writeText(document.getElementById('tailored-text').textContent);
     const btn=document.getElementById('copy-btn');btn.textContent='✓ COPIED';btn.classList.add('copied');
     setTimeout(()=>{btn.textContent='COPY';btn.classList.remove('copied');},2000);
   }
+  function downloadPDF(){
+    const text = document.getElementById('tailored-text').textContent;
+    if (!text) return;
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF({ unit: 'pt', format: 'letter' });
+    const pageW = doc.internal.pageSize.getWidth();
+    const marginL = 54, marginR = 54, marginT = 50;
+    const usableW = pageW - marginL - marginR;
+    let y = marginT;
+
+    const lines = text.split('\n');
+
+    // Detect name (first non-empty line) and contact info (second non-empty line if it looks like contact)
+    let nameIdx = -1, contactIdx = -1;
+    for (let i = 0; i < lines.length; i++) {
+      if (lines[i].trim()) {
+        if (nameIdx === -1) { nameIdx = i; }
+        else if (contactIdx === -1) {
+          const l = lines[i].trim();
+          if (l.includes('@') || l.includes('|') || l.includes('·') || /\d{3}[.\-]?\d{3}[.\-]?\d{4}/.test(l) || l.includes('linkedin') || l.includes('github')) {
+            contactIdx = i;
+          }
+          break;
+        }
+      }
+    }
+
+    // Section header patterns
+    const sectionPattern = /^[A-Z][A-Z &\/\-]{2,}$/;
+    const isSectionHeader = (l) => sectionPattern.test(l.trim());
+
+    // Helper: wrap text and return lines
+    function wrapText(txt, fontSize, maxW, fontStyle) {
+      doc.setFontSize(fontSize);
+      doc.setFont('times', fontStyle || 'normal');
+      return doc.splitTextToSize(txt, maxW);
+    }
+
+    // Calculate total height first to scale if needed
+    function measureHeight() {
+      let h = marginT;
+      for (let i = 0; i < lines.length; i++) {
+        const raw = lines[i];
+        const trimmed = raw.trim();
+        if (!trimmed) { h += 6; continue; }
+        if (i === nameIdx) { h += 22; continue; }
+        if (i === contactIdx) { h += 16; continue; }
+        if (isSectionHeader(trimmed)) { h += 22; continue; }
+        // Bullet point
+        if (trimmed.startsWith('•') || trimmed.startsWith('-') || trimmed.startsWith('–')) {
+          const wrapped = wrapText(trimmed.replace(/^[•\-–]\s*/, ''), 10, usableW - 18, 'normal');
+          h += wrapped.length * 13;
+          continue;
+        }
+        // Regular line
+        const wrapped = wrapText(trimmed, 10, usableW, 'normal');
+        h += wrapped.length * 13;
+      }
+      return h + 30;
+    }
+
+    const totalH = measureHeight();
+    const pageH = doc.internal.pageSize.getHeight();
+    const scale = totalH > pageH ? pageH / totalH : 1;
+    const lineH = 13 * scale;
+    const sectionGap = 6 * scale;
+    const blankGap = 6 * scale;
+
+    // Render
+    for (let i = 0; i < lines.length; i++) {
+      const raw = lines[i];
+      const trimmed = raw.trim();
+
+      if (!trimmed) { y += blankGap; continue; }
+
+      // Name
+      if (i === nameIdx) {
+        doc.setFont('times', 'bold');
+        doc.setFontSize(18 * scale);
+        doc.text(trimmed, pageW / 2, y, { align: 'center' });
+        y += 20 * scale;
+        continue;
+      }
+
+      // Contact line
+      if (i === contactIdx) {
+        doc.setFont('times', 'normal');
+        doc.setFontSize(9.5 * scale);
+        doc.text(trimmed, pageW / 2, y, { align: 'center' });
+        y += 14 * scale;
+        continue;
+      }
+
+      // Section header
+      if (isSectionHeader(trimmed)) {
+        y += sectionGap;
+        doc.setFont('times', 'bold');
+        doc.setFontSize(10.5 * scale);
+        doc.text(trimmed, marginL, y);
+        y += 3 * scale;
+        doc.setDrawColor(0);
+        doc.setLineWidth(0.7);
+        doc.line(marginL, y, pageW - marginR, y);
+        y += 10 * scale;
+        continue;
+      }
+
+      // Bullet point
+      if (trimmed.startsWith('•') || trimmed.startsWith('-') || trimmed.startsWith('–')) {
+        const bulletText = trimmed.replace(/^[•\-–]\s*/, '');
+        doc.setFont('times', 'normal');
+        doc.setFontSize(10 * scale);
+        doc.text('•', marginL + 4, y);
+        const wrapped = doc.splitTextToSize(bulletText, usableW - 18);
+        for (let j = 0; j < wrapped.length; j++) {
+          doc.text(wrapped[j], marginL + 16, y);
+          y += lineH;
+        }
+        continue;
+      }
+
+      // Lines with date-like patterns on the right (e.g., "Company Name   City, ST   Month Year – Month Year")
+      // Detect if line has a date pattern at the end
+      const dateMatch = trimmed.match(/^(.+?)\s{2,}(.+(?:\d{4}|Present|Current).*)$/i);
+      if (dateMatch) {
+        const left = dateMatch[1].trim();
+        const right = dateMatch[2].trim();
+        // Check if left part looks like a title/position (starts with a bold-worthy word)
+        const isOrgLine = /^[A-Z]/.test(left) && !left.startsWith('•');
+        doc.setFont('times', isOrgLine ? 'bold' : 'italic');
+        doc.setFontSize(10 * scale);
+        doc.text(left, marginL, y);
+        doc.setFont('times', 'italic');
+        doc.text(right, pageW - marginR, y, { align: 'right' });
+        y += lineH;
+        continue;
+      }
+
+      // Regular text line
+      doc.setFont('times', 'normal');
+      doc.setFontSize(10 * scale);
+      const wrapped = doc.splitTextToSize(trimmed, usableW);
+      for (let j = 0; j < wrapped.length; j++) {
+        doc.text(wrapped[j], marginL, y);
+        y += lineH;
+      }
+    }
+
+    doc.save('Tailored_Resume.pdf');
+    const btn = document.getElementById('download-btn');
+    btn.textContent = '✓ SAVED';
+    btn.classList.add('copied');
+    setTimeout(() => { btn.textContent = '↓ PDF'; btn.classList.remove('copied'); }, 2000);
+  }
+
   function reset(){
     document.getElementById('resume-input').value='';document.getElementById('job-input').value='';
     document.getElementById('resume-file').value='';document.getElementById('job-file').value='';
@@ -484,7 +642,7 @@
     document.getElementById('job-file-name').classList.remove('show');
     document.querySelectorAll('.tab-btn').forEach((b,i)=>b.classList.toggle('active',i===0));
     document.getElementById('tab-tailored').style.display='block';document.getElementById('tab-changes').style.display='none';
-    document.getElementById('copy-btn').style.display='inline-block';hideError();setScreen('input');
+    document.getElementById('copy-btn').style.display='inline-block';document.getElementById('download-btn').style.display='inline-block';hideError();setScreen('input');
   }
 </script>
 </body>
