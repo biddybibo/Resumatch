@@ -486,243 +486,228 @@
     const doc = new jsPDF({ unit: 'pt', format: 'letter' });
     const pageW = doc.internal.pageSize.getWidth();
     const pageH = doc.internal.pageSize.getHeight();
-    const marginL = 40, marginR = 40, marginT = 36, marginB = 36;
-    const usableW = pageW - marginL - marginR;
-    const bulletIndent = 14;
-    const bulletTextX = marginL + bulletIndent;
-    const bulletTextW = usableW - bulletIndent;
+    // Tight margins like the USC template
+    const mL = 36, mR = 36, mT = 36, mB = 30;
+    const W = pageW - mL - mR;
+    const rX = pageW - mR;
+    // Bullet indent: small dot then text
+    const bDot = mL + 8;
+    const bTxt = mL + 18;
+    const bW = W - 18;
 
     const rawLines = text.split('\n');
 
-    // Classify each line
-    const sectionRe = /^[A-Z][A-Z &\/\-]{2,}$/;
-    const dateRe = /(\w+\s+\d{4}\s*[-–—]\s*(?:Present|Current|\w+\s+\d{4}))|(\w+\s+\d{4})|Expected\s+\w+\s+\d{4}/i;
-    const bulletRe = /^[•●\-–—]\s*/;
-    const contactRe = /[@|].*[@|]|(\d{3}[.\-)\s]?\s*\d{3}[.\-]\d{4})/;
-    const skillLabelRe = /^([\w\s\/]+):\s*(.+)$/;
-    const locationRe = /[A-Z][a-z]+,\s*[A-Z]{2}$|[A-Z][a-z]+,\s*[A-Z][a-z]+$/;
+    // Patterns
+    const sectionRe = /^[A-Z][A-Z &\/\-,]{2,}$/;
+    const dateRe = /(\w+\.?\s+\d{4}\s*[-\u2013\u2014]\s*(?:Present|Current|\w+\.?\s+\d{4}))|Expected\s+\w+\s+\d{4}/i;
+    const bulletRe = /^[\u2022\u25CF\u25CB\u2023\u2043*\-\u2013\u2014]\s+/;
+    const contactRe = /[@|].*[@|]/;
+    const skillLabelRe = /^([A-Za-z][A-Za-z\s\/\(\)]+):\s*(.+)$/;
 
-    // Identify name and contact lines
+    // Find name + contact
     let nameIdx = -1, contactIdx = -1;
     for (let i = 0; i < rawLines.length; i++) {
       const t = rawLines[i].trim();
       if (!t) continue;
       if (nameIdx === -1) { nameIdx = i; continue; }
-      if (contactRe.test(t) || t.includes('linkedin') || t.includes('github')) { contactIdx = i; break; }
+      if (contactRe.test(t) || t.includes('linkedin') || t.includes('github')) { contactIdx = i; }
       break;
     }
 
-    // Parse lines into tokens
+    // Tokenize
     const tokens = [];
-    let currentSection = '';
+    let curSection = '';
     for (let i = 0; i < rawLines.length; i++) {
-      const trimmed = rawLines[i].trim();
-      if (!trimmed) { tokens.push({ type: 'blank' }); continue; }
-      if (i === nameIdx) { tokens.push({ type: 'name', text: trimmed }); continue; }
-      if (i === contactIdx) { tokens.push({ type: 'contact', text: trimmed }); continue; }
-      if (sectionRe.test(trimmed)) {
-        currentSection = trimmed;
-        tokens.push({ type: 'section', text: trimmed });
-        continue;
-      }
-      if (bulletRe.test(trimmed)) {
-        tokens.push({ type: 'bullet', text: trimmed.replace(bulletRe, '') });
-        continue;
-      }
-      // Lines with dates — could be org line or position line
-      if (dateRe.test(trimmed)) {
-        // Split into left part and date part
-        const parts = trimmed.split(/\s{2,}/);
-        if (parts.length >= 2) {
-          const datePart = parts[parts.length - 1].trim();
-          const leftPart = parts.slice(0, -1).join('  ').trim();
-          // Check if there's a location on a separate concept
-          // If the left part is ALL CAPS or mostly caps, it's an org line
-          const isOrg = leftPart === leftPart.toUpperCase() && leftPart.length > 3;
-          tokens.push({ type: isOrg ? 'org' : 'position', left: leftPart, right: datePart });
-        } else {
-          tokens.push({ type: 'text', text: trimmed });
+      const tr = rawLines[i].trim();
+      if (!tr) { tokens.push({ t: 'gap' }); continue; }
+      if (i === nameIdx) { tokens.push({ t: 'name', v: tr }); continue; }
+      if (i === contactIdx) { tokens.push({ t: 'contact', v: tr }); continue; }
+
+      if (sectionRe.test(tr)) { curSection = tr; tokens.push({ t: 'section', v: tr }); continue; }
+
+      if (bulletRe.test(tr)) { tokens.push({ t: 'bullet', v: tr.replace(bulletRe, '') }); continue; }
+
+      // Two-column line (org/position with date or location on right)
+      const twoParts = tr.match(/^(.+?)\s{2,}(.+)$/);
+      if (twoParts) {
+        const left = twoParts[1].trim(), right = twoParts[2].trim();
+        const allCaps = left === left.toUpperCase() && /[A-Z]/.test(left);
+        if (allCaps && left.length > 2) {
+          tokens.push({ t: 'org', left, right }); continue;
         }
-        continue;
+        // Check next line for location
+        tokens.push({ t: 'sub', left, right }); continue;
       }
-      // Check for location-only lines (e.g., "LOS ANGELES, CA" or "Los Angeles, CA")
-      if (locationRe.test(trimmed) && trimmed.split(' ').length <= 4) {
-        // Attach to previous token as location
-        const prev = tokens[tokens.length - 1];
-        if (prev && (prev.type === 'org' || prev.type === 'position')) {
-          prev.location = trimmed;
+
+      // Skill line
+      if (curSection.includes('SKILL') && skillLabelRe.test(tr)) {
+        const m = tr.match(skillLabelRe);
+        tokens.push({ t: 'skill', label: m[1].trim(), val: m[2].trim() }); continue;
+      }
+
+      // Project title (bold, under PROJECTS section)
+      if (curSection === 'PROJECTS' && !bulletRe.test(tr)) {
+        tokens.push({ t: 'project', v: tr }); continue;
+      }
+
+      // Standalone org-like line (all caps, no date)
+      if (tr === tr.toUpperCase() && /[A-Z]/.test(tr) && tr.length > 3 && !sectionRe.test(tr)) {
+        tokens.push({ t: 'org', left: tr, right: '' }); continue;
+      }
+
+      tokens.push({ t: 'text', v: tr });
+    }
+
+    // Attach location lines: if a sub/org is followed by another sub with location pattern
+    for (let i = 0; i < tokens.length - 1; i++) {
+      if ((tokens[i].t === 'org') && tokens[i+1].t === 'sub') {
+        tokens[i].sub = tokens[i+1];
+        tokens.splice(i+1, 1);
+      }
+    }
+
+    // Measure pass to compute scale factor for single page
+    function meas(sz) {
+      let h = mT;
+      const lh = sz * 1.25;
+      for (const tk of tokens) {
+        if (tk.t === 'gap') { h += 2; continue; }
+        if (tk.t === 'name') { h += sz * 2; continue; }
+        if (tk.t === 'contact') { h += sz * 1.3; continue; }
+        if (tk.t === 'section') { h += sz * 1.8; continue; }
+        if (tk.t === 'org') {
+          h += lh;
+          if (tk.sub) h += lh;
           continue;
         }
-      }
-      // Skill lines with label: value
-      if (currentSection.includes('SKILL') && skillLabelRe.test(trimmed)) {
-        const m = trimmed.match(skillLabelRe);
-        tokens.push({ type: 'skill', label: m[1].trim(), value: m[2].trim() });
-        continue;
-      }
-      // Check for org/position without date (e.g., project names)
-      if (currentSection === 'PROJECTS' && !bulletRe.test(trimmed) && !sectionRe.test(trimmed)) {
-        tokens.push({ type: 'project', text: trimmed });
-        continue;
-      }
-      // Education lines or other text with right-aligned info
-      const twoColMatch = trimmed.match(/^(.+?)\s{2,}(.+)$/);
-      if (twoColMatch) {
-        const left = twoColMatch[1].trim();
-        const right = twoColMatch[2].trim();
-        const isOrg = left === left.toUpperCase() && left.length > 3;
-        tokens.push({ type: isOrg ? 'org' : 'position', left, right });
-        continue;
-      }
-      tokens.push({ type: 'text', text: trimmed });
-    }
-
-    // Measure total height to compute scale
-    function measure() {
-      let h = marginT;
-      const fs = 10, lh = 12.5;
-      for (const tk of tokens) {
-        switch (tk.type) {
-          case 'blank': h += 4; break;
-          case 'name': h += 22; break;
-          case 'contact': h += 14; break;
-          case 'section': h += 18; break;
-          case 'org': h += tk.location ? lh * 2 : lh; break;
-          case 'position': h += tk.location ? lh * 2 : lh; break;
-          case 'project': h += lh + 2; break;
-          case 'skill': {
-            doc.setFontSize(fs); doc.setFont('times','normal');
-            const full = tk.label + ': ' + tk.value;
-            const w = doc.splitTextToSize(full, usableW);
-            h += w.length * lh; break;
-          }
-          case 'bullet': {
-            doc.setFontSize(fs); doc.setFont('times','normal');
-            const w = doc.splitTextToSize(tk.text, bulletTextW);
-            h += w.length * lh; break;
-          }
-          case 'text': {
-            doc.setFontSize(fs); doc.setFont('times','normal');
-            const w = doc.splitTextToSize(tk.text, usableW);
-            h += w.length * lh; break;
-          }
+        if (tk.t === 'sub') { h += lh; continue; }
+        if (tk.t === 'project') { h += lh + 1; continue; }
+        if (tk.t === 'bullet') {
+          doc.setFontSize(sz); doc.setFont('times','normal');
+          h += doc.splitTextToSize(tk.v, bW).length * lh; continue;
+        }
+        if (tk.t === 'skill') {
+          doc.setFontSize(sz); doc.setFont('times','bold');
+          const lW = doc.getTextWidth(tk.label + ': ');
+          doc.setFont('times','normal');
+          const lines = doc.splitTextToSize(tk.val, W - lW);
+          h += Math.max(1, lines.length) * lh; continue;
+        }
+        if (tk.t === 'text') {
+          doc.setFontSize(sz); doc.setFont('times','normal');
+          h += doc.splitTextToSize(tk.v, W).length * lh; continue;
         }
       }
-      return h + marginB;
+      return h + mB;
     }
 
-    const totalH = measure();
-    const s = totalH > pageH ? pageH / totalH : 1;
-    const fs = 10 * s;
-    const lh = 12.5 * s;
+    // Find optimal font size (start at 10.5, shrink until fits)
+    let sz = 10.5;
+    while (sz > 6 && meas(sz) > pageH) sz -= 0.25;
+    const lh = sz * 1.25;
 
-    let y = marginT;
-    const rightX = pageW - marginR;
+    let y = mT;
+
+    // Draw bullet as a small filled circle
+    function drawBullet(x, yy) {
+      doc.setFillColor(0, 0, 0);
+      doc.circle(x, yy - sz * 0.28, sz * 0.13, 'F');
+    }
 
     for (const tk of tokens) {
-      switch (tk.type) {
-        case 'blank':
-          y += 4 * s;
+      switch (tk.t) {
+        case 'gap':
+          y += 2;
           break;
 
         case 'name':
           doc.setFont('times', 'bold');
-          doc.setFontSize(18 * s);
-          doc.text(tk.text, pageW / 2, y, { align: 'center' });
-          y += 22 * s;
+          doc.setFontSize(sz * 1.7);
+          doc.text(tk.v, pageW / 2, y, { align: 'center' });
+          y += sz * 2;
           break;
 
         case 'contact':
           doc.setFont('times', 'normal');
-          doc.setFontSize(9 * s);
-          doc.text(tk.text, pageW / 2, y, { align: 'center' });
-          y += 14 * s;
+          doc.setFontSize(sz * 0.9);
+          doc.text(tk.v, pageW / 2, y, { align: 'center' });
+          y += sz * 1.3;
           break;
 
         case 'section':
-          y += 4 * s;
+          y += 3;
           doc.setFont('times', 'normal');
-          doc.setFontSize(fs);
-          doc.text(tk.text, marginL, y);
-          y += 2.5 * s;
+          doc.setFontSize(sz);
+          doc.text(tk.v, mL, y);
+          y += 2;
           doc.setDrawColor(0);
-          doc.setLineWidth(0.5);
-          doc.line(marginL, y, rightX, y);
-          y += 8 * s;
+          doc.setLineWidth(0.6);
+          doc.line(mL, y, rX, y);
+          y += sz * 0.7;
           break;
 
         case 'org':
           doc.setFont('times', 'bold');
-          doc.setFontSize(fs);
-          doc.text(tk.left, marginL, y);
+          doc.setFontSize(sz);
+          doc.text(tk.left, mL, y);
           if (tk.right) {
             doc.setFont('times', 'normal');
-            doc.text(tk.right, rightX, y, { align: 'right' });
+            doc.text(tk.right, rX, y, { align: 'right' });
           }
           y += lh;
-          if (tk.location) {
+          if (tk.sub) {
             doc.setFont('times', 'italic');
-            doc.setFontSize(fs);
-            doc.text(tk.location, rightX, y, { align: 'right' });
+            doc.setFontSize(sz);
+            doc.text(tk.sub.left, mL, y);
+            if (tk.sub.right) {
+              doc.text(tk.sub.right, rX, y, { align: 'right' });
+            }
             y += lh;
           }
           break;
 
-        case 'position':
+        case 'sub':
           doc.setFont('times', 'italic');
-          doc.setFontSize(fs);
-          doc.text(tk.left, marginL, y);
+          doc.setFontSize(sz);
+          doc.text(tk.left, mL, y);
           if (tk.right) {
-            // Check if right is a date or location
-            if (dateRe.test(tk.right)) {
-              doc.setFont('times', 'normal');
-            } else {
-              doc.setFont('times', 'italic');
-            }
-            doc.text(tk.right, rightX, y, { align: 'right' });
+            doc.text(tk.right, rX, y, { align: 'right' });
           }
           y += lh;
-          if (tk.location) {
-            doc.setFont('times', 'italic');
-            doc.setFontSize(fs);
-            doc.text(tk.location, rightX, y, { align: 'right' });
-            y += lh;
-          }
           break;
 
         case 'project':
-          y += 2 * s;
+          y += 1;
           doc.setFont('times', 'bold');
-          doc.setFontSize(fs);
-          doc.text(tk.text, marginL, y);
+          doc.setFontSize(sz);
+          doc.text(tk.v, mL, y);
           y += lh;
           break;
 
-        case 'skill': {
-          doc.setFontSize(fs);
-          // Draw label bold, value normal
-          doc.setFont('times', 'bold');
-          const labelStr = tk.label + ': ';
-          const labelW = doc.getTextWidth(labelStr);
-          doc.text(labelStr, marginL, y);
+        case 'bullet': {
           doc.setFont('times', 'normal');
-          const valWrapped = doc.splitTextToSize(tk.value, usableW - labelW);
-          doc.text(valWrapped[0], marginL + labelW, y);
-          y += lh;
-          for (let j = 1; j < valWrapped.length; j++) {
-            doc.text(valWrapped[j], marginL, y);
+          doc.setFontSize(sz);
+          drawBullet(bDot, y);
+          const wrapped = doc.splitTextToSize(tk.v, bW);
+          for (let j = 0; j < wrapped.length; j++) {
+            doc.text(wrapped[j], bTxt, y);
             y += lh;
           }
           break;
         }
 
-        case 'bullet': {
+        case 'skill': {
+          doc.setFontSize(sz);
+          doc.setFont('times', 'bold');
+          const lbl = tk.label + ': ';
+          const lblW = doc.getTextWidth(lbl);
+          doc.text(lbl, mL, y);
           doc.setFont('times', 'normal');
-          doc.setFontSize(fs);
-          doc.text('●', marginL + 2, y);
-          const wrapped = doc.splitTextToSize(tk.text, bulletTextW);
-          for (let j = 0; j < wrapped.length; j++) {
-            doc.text(wrapped[j], bulletTextX, y);
+          const vLines = doc.splitTextToSize(tk.val, W - lblW);
+          doc.text(vLines[0], mL + lblW, y);
+          y += lh;
+          for (let j = 1; j < vLines.length; j++) {
+            doc.text(vLines[j], mL, y);
             y += lh;
           }
           break;
@@ -730,10 +715,10 @@
 
         case 'text': {
           doc.setFont('times', 'normal');
-          doc.setFontSize(fs);
-          const wrapped = doc.splitTextToSize(tk.text, usableW);
+          doc.setFontSize(sz);
+          const wrapped = doc.splitTextToSize(tk.v, W);
           for (let j = 0; j < wrapped.length; j++) {
-            doc.text(wrapped[j], marginL, y);
+            doc.text(wrapped[j], mL, y);
             y += lh;
           }
           break;
