@@ -120,7 +120,7 @@
   async function googleSignIn() {
     const { error } = await sb.auth.signInWithOAuth({
       provider: 'google',
-      options: { redirectTo: window.location.origin + '/login' }
+      options: { redirectTo: 'https://resumatch.help/login' }
     });
     if (error) showError(error.message);
   }
