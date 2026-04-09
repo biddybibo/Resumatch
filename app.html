@@ -436,12 +436,12 @@
       const reader=res.body.getReader();
       const decoder=new TextDecoder();
       let buffer='';
+      let resultRendered=false;
       while(true){
         const {done,value}=await reader.read();
-        if(done)break;
-        buffer+=decoder.decode(value,{stream:true});
+        if(value)buffer+=decoder.decode(value,{stream:!done});
         const lines=buffer.split('\n');
-        buffer=lines.pop();
+        buffer=done?'':lines.pop();
         for(const line of lines){
           if(!line.startsWith('data: '))continue;
           const msg=JSON.parse(line.slice(6));
@@ -452,9 +452,12 @@
             if(profile) profile.tailor_count++;
             updateNavUsage();
             renderResult(msg.result);
+            resultRendered=true;
           }
         }
+        if(done)break;
       }
+      if(!resultRendered)throw new Error('No response received. Please try again.');
     }catch(e){setScreen('input');showError(e.message||'Something went wrong. Please try again.');}
   }
   function renderResult(r){
