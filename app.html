@@ -485,145 +485,259 @@
     const { jsPDF } = window.jspdf;
     const doc = new jsPDF({ unit: 'pt', format: 'letter' });
     const pageW = doc.internal.pageSize.getWidth();
-    const marginL = 54, marginR = 54, marginT = 50;
+    const pageH = doc.internal.pageSize.getHeight();
+    const marginL = 40, marginR = 40, marginT = 36, marginB = 36;
     const usableW = pageW - marginL - marginR;
-    let y = marginT;
+    const bulletIndent = 14;
+    const bulletTextX = marginL + bulletIndent;
+    const bulletTextW = usableW - bulletIndent;
 
-    const lines = text.split('\n');
+    const rawLines = text.split('\n');
 
-    // Detect name (first non-empty line) and contact info (second non-empty line if it looks like contact)
+    // Classify each line
+    const sectionRe = /^[A-Z][A-Z &\/\-]{2,}$/;
+    const dateRe = /(\w+\s+\d{4}\s*[-–—]\s*(?:Present|Current|\w+\s+\d{4}))|(\w+\s+\d{4})|Expected\s+\w+\s+\d{4}/i;
+    const bulletRe = /^[•●\-–—]\s*/;
+    const contactRe = /[@|].*[@|]|(\d{3}[.\-)\s]?\s*\d{3}[.\-]\d{4})/;
+    const skillLabelRe = /^([\w\s\/]+):\s*(.+)$/;
+    const locationRe = /[A-Z][a-z]+,\s*[A-Z]{2}$|[A-Z][a-z]+,\s*[A-Z][a-z]+$/;
+
+    // Identify name and contact lines
     let nameIdx = -1, contactIdx = -1;
-    for (let i = 0; i < lines.length; i++) {
-      if (lines[i].trim()) {
-        if (nameIdx === -1) { nameIdx = i; }
-        else if (contactIdx === -1) {
-          const l = lines[i].trim();
-          if (l.includes('@') || l.includes('|') || l.includes('·') || /\d{3}[.\-]?\d{3}[.\-]?\d{4}/.test(l) || l.includes('linkedin') || l.includes('github')) {
-            contactIdx = i;
+    for (let i = 0; i < rawLines.length; i++) {
+      const t = rawLines[i].trim();
+      if (!t) continue;
+      if (nameIdx === -1) { nameIdx = i; continue; }
+      if (contactRe.test(t) || t.includes('linkedin') || t.includes('github')) { contactIdx = i; break; }
+      break;
+    }
+
+    // Parse lines into tokens
+    const tokens = [];
+    let currentSection = '';
+    for (let i = 0; i < rawLines.length; i++) {
+      const trimmed = rawLines[i].trim();
+      if (!trimmed) { tokens.push({ type: 'blank' }); continue; }
+      if (i === nameIdx) { tokens.push({ type: 'name', text: trimmed }); continue; }
+      if (i === contactIdx) { tokens.push({ type: 'contact', text: trimmed }); continue; }
+      if (sectionRe.test(trimmed)) {
+        currentSection = trimmed;
+        tokens.push({ type: 'section', text: trimmed });
+        continue;
+      }
+      if (bulletRe.test(trimmed)) {
+        tokens.push({ type: 'bullet', text: trimmed.replace(bulletRe, '') });
+        continue;
+      }
+      // Lines with dates — could be org line or position line
+      if (dateRe.test(trimmed)) {
+        // Split into left part and date part
+        const parts = trimmed.split(/\s{2,}/);
+        if (parts.length >= 2) {
+          const datePart = parts[parts.length - 1].trim();
+          const leftPart = parts.slice(0, -1).join('  ').trim();
+          // Check if there's a location on a separate concept
+          // If the left part is ALL CAPS or mostly caps, it's an org line
+          const isOrg = leftPart === leftPart.toUpperCase() && leftPart.length > 3;
+          tokens.push({ type: isOrg ? 'org' : 'position', left: leftPart, right: datePart });
+        } else {
+          tokens.push({ type: 'text', text: trimmed });
+        }
+        continue;
+      }
+      // Check for location-only lines (e.g., "LOS ANGELES, CA" or "Los Angeles, CA")
+      if (locationRe.test(trimmed) && trimmed.split(' ').length <= 4) {
+        // Attach to previous token as location
+        const prev = tokens[tokens.length - 1];
+        if (prev && (prev.type === 'org' || prev.type === 'position')) {
+          prev.location = trimmed;
+          continue;
+        }
+      }
+      // Skill lines with label: value
+      if (currentSection.includes('SKILL') && skillLabelRe.test(trimmed)) {
+        const m = trimmed.match(skillLabelRe);
+        tokens.push({ type: 'skill', label: m[1].trim(), value: m[2].trim() });
+        continue;
+      }
+      // Check for org/position without date (e.g., project names)
+      if (currentSection === 'PROJECTS' && !bulletRe.test(trimmed) && !sectionRe.test(trimmed)) {
+        tokens.push({ type: 'project', text: trimmed });
+        continue;
+      }
+      // Education lines or other text with right-aligned info
+      const twoColMatch = trimmed.match(/^(.+?)\s{2,}(.+)$/);
+      if (twoColMatch) {
+        const left = twoColMatch[1].trim();
+        const right = twoColMatch[2].trim();
+        const isOrg = left === left.toUpperCase() && left.length > 3;
+        tokens.push({ type: isOrg ? 'org' : 'position', left, right });
+        continue;
+      }
+      tokens.push({ type: 'text', text: trimmed });
+    }
+
+    // Measure total height to compute scale
+    function measure() {
+      let h = marginT;
+      const fs = 10, lh = 12.5;
+      for (const tk of tokens) {
+        switch (tk.type) {
+          case 'blank': h += 4; break;
+          case 'name': h += 22; break;
+          case 'contact': h += 14; break;
+          case 'section': h += 18; break;
+          case 'org': h += tk.location ? lh * 2 : lh; break;
+          case 'position': h += tk.location ? lh * 2 : lh; break;
+          case 'project': h += lh + 2; break;
+          case 'skill': {
+            doc.setFontSize(fs); doc.setFont('times','normal');
+            const full = tk.label + ': ' + tk.value;
+            const w = doc.splitTextToSize(full, usableW);
+            h += w.length * lh; break;
+          }
+          case 'bullet': {
+            doc.setFontSize(fs); doc.setFont('times','normal');
+            const w = doc.splitTextToSize(tk.text, bulletTextW);
+            h += w.length * lh; break;
+          }
+          case 'text': {
+            doc.setFontSize(fs); doc.setFont('times','normal');
+            const w = doc.splitTextToSize(tk.text, usableW);
+            h += w.length * lh; break;
+          }
+        }
+      }
+      return h + marginB;
+    }
+
+    const totalH = measure();
+    const s = totalH > pageH ? pageH / totalH : 1;
+    const fs = 10 * s;
+    const lh = 12.5 * s;
+
+    let y = marginT;
+    const rightX = pageW - marginR;
+
+    for (const tk of tokens) {
+      switch (tk.type) {
+        case 'blank':
+          y += 4 * s;
+          break;
+
+        case 'name':
+          doc.setFont('times', 'bold');
+          doc.setFontSize(18 * s);
+          doc.text(tk.text, pageW / 2, y, { align: 'center' });
+          y += 22 * s;
+          break;
+
+        case 'contact':
+          doc.setFont('times', 'normal');
+          doc.setFontSize(9 * s);
+          doc.text(tk.text, pageW / 2, y, { align: 'center' });
+          y += 14 * s;
+          break;
+
+        case 'section':
+          y += 4 * s;
+          doc.setFont('times', 'normal');
+          doc.setFontSize(fs);
+          doc.text(tk.text, marginL, y);
+          y += 2.5 * s;
+          doc.setDrawColor(0);
+          doc.setLineWidth(0.5);
+          doc.line(marginL, y, rightX, y);
+          y += 8 * s;
+          break;
+
+        case 'org':
+          doc.setFont('times', 'bold');
+          doc.setFontSize(fs);
+          doc.text(tk.left, marginL, y);
+          if (tk.right) {
+            doc.setFont('times', 'normal');
+            doc.text(tk.right, rightX, y, { align: 'right' });
+          }
+          y += lh;
+          if (tk.location) {
+            doc.setFont('times', 'italic');
+            doc.setFontSize(fs);
+            doc.text(tk.location, rightX, y, { align: 'right' });
+            y += lh;
+          }
+          break;
+
+        case 'position':
+          doc.setFont('times', 'italic');
+          doc.setFontSize(fs);
+          doc.text(tk.left, marginL, y);
+          if (tk.right) {
+            // Check if right is a date or location
+            if (dateRe.test(tk.right)) {
+              doc.setFont('times', 'normal');
+            } else {
+              doc.setFont('times', 'italic');
+            }
+            doc.text(tk.right, rightX, y, { align: 'right' });
+          }
+          y += lh;
+          if (tk.location) {
+            doc.setFont('times', 'italic');
+            doc.setFontSize(fs);
+            doc.text(tk.location, rightX, y, { align: 'right' });
+            y += lh;
+          }
+          break;
+
+        case 'project':
+          y += 2 * s;
+          doc.setFont('times', 'bold');
+          doc.setFontSize(fs);
+          doc.text(tk.text, marginL, y);
+          y += lh;
+          break;
+
+        case 'skill': {
+          doc.setFontSize(fs);
+          // Draw label bold, value normal
+          doc.setFont('times', 'bold');
+          const labelStr = tk.label + ': ';
+          const labelW = doc.getTextWidth(labelStr);
+          doc.text(labelStr, marginL, y);
+          doc.setFont('times', 'normal');
+          const valWrapped = doc.splitTextToSize(tk.value, usableW - labelW);
+          doc.text(valWrapped[0], marginL + labelW, y);
+          y += lh;
+          for (let j = 1; j < valWrapped.length; j++) {
+            doc.text(valWrapped[j], marginL, y);
+            y += lh;
           }
           break;
         }
-      }
-    }
 
-    // Section header patterns
-    const sectionPattern = /^[A-Z][A-Z &\/\-]{2,}$/;
-    const isSectionHeader = (l) => sectionPattern.test(l.trim());
-
-    // Helper: wrap text and return lines
-    function wrapText(txt, fontSize, maxW, fontStyle) {
-      doc.setFontSize(fontSize);
-      doc.setFont('times', fontStyle || 'normal');
-      return doc.splitTextToSize(txt, maxW);
-    }
-
-    // Calculate total height first to scale if needed
-    function measureHeight() {
-      let h = marginT;
-      for (let i = 0; i < lines.length; i++) {
-        const raw = lines[i];
-        const trimmed = raw.trim();
-        if (!trimmed) { h += 6; continue; }
-        if (i === nameIdx) { h += 22; continue; }
-        if (i === contactIdx) { h += 16; continue; }
-        if (isSectionHeader(trimmed)) { h += 22; continue; }
-        // Bullet point
-        if (trimmed.startsWith('•') || trimmed.startsWith('-') || trimmed.startsWith('–')) {
-          const wrapped = wrapText(trimmed.replace(/^[•\-–]\s*/, ''), 10, usableW - 18, 'normal');
-          h += wrapped.length * 13;
-          continue;
+        case 'bullet': {
+          doc.setFont('times', 'normal');
+          doc.setFontSize(fs);
+          doc.text('●', marginL + 2, y);
+          const wrapped = doc.splitTextToSize(tk.text, bulletTextW);
+          for (let j = 0; j < wrapped.length; j++) {
+            doc.text(wrapped[j], bulletTextX, y);
+            y += lh;
+          }
+          break;
         }
-        // Regular line
-        const wrapped = wrapText(trimmed, 10, usableW, 'normal');
-        h += wrapped.length * 13;
-      }
-      return h + 30;
-    }
 
-    const totalH = measureHeight();
-    const pageH = doc.internal.pageSize.getHeight();
-    const scale = totalH > pageH ? pageH / totalH : 1;
-    const lineH = 13 * scale;
-    const sectionGap = 6 * scale;
-    const blankGap = 6 * scale;
-
-    // Render
-    for (let i = 0; i < lines.length; i++) {
-      const raw = lines[i];
-      const trimmed = raw.trim();
-
-      if (!trimmed) { y += blankGap; continue; }
-
-      // Name
-      if (i === nameIdx) {
-        doc.setFont('times', 'bold');
-        doc.setFontSize(18 * scale);
-        doc.text(trimmed, pageW / 2, y, { align: 'center' });
-        y += 20 * scale;
-        continue;
-      }
-
-      // Contact line
-      if (i === contactIdx) {
-        doc.setFont('times', 'normal');
-        doc.setFontSize(9.5 * scale);
-        doc.text(trimmed, pageW / 2, y, { align: 'center' });
-        y += 14 * scale;
-        continue;
-      }
-
-      // Section header
-      if (isSectionHeader(trimmed)) {
-        y += sectionGap;
-        doc.setFont('times', 'bold');
-        doc.setFontSize(10.5 * scale);
-        doc.text(trimmed, marginL, y);
-        y += 3 * scale;
-        doc.setDrawColor(0);
-        doc.setLineWidth(0.7);
-        doc.line(marginL, y, pageW - marginR, y);
-        y += 10 * scale;
-        continue;
-      }
-
-      // Bullet point
-      if (trimmed.startsWith('•') || trimmed.startsWith('-') || trimmed.startsWith('–')) {
-        const bulletText = trimmed.replace(/^[•\-–]\s*/, '');
-        doc.setFont('times', 'normal');
-        doc.setFontSize(10 * scale);
-        doc.text('•', marginL + 4, y);
-        const wrapped = doc.splitTextToSize(bulletText, usableW - 18);
-        for (let j = 0; j < wrapped.length; j++) {
-          doc.text(wrapped[j], marginL + 16, y);
-          y += lineH;
+        case 'text': {
+          doc.setFont('times', 'normal');
+          doc.setFontSize(fs);
+          const wrapped = doc.splitTextToSize(tk.text, usableW);
+          for (let j = 0; j < wrapped.length; j++) {
+            doc.text(wrapped[j], marginL, y);
+            y += lh;
+          }
+          break;
         }
-        continue;
-      }
-
-      // Lines with date-like patterns on the right (e.g., "Company Name   City, ST   Month Year – Month Year")
-      // Detect if line has a date pattern at the end
-      const dateMatch = trimmed.match(/^(.+?)\s{2,}(.+(?:\d{4}|Present|Current).*)$/i);
-      if (dateMatch) {
-        const left = dateMatch[1].trim();
-        const right = dateMatch[2].trim();
-        // Check if left part looks like a title/position (starts with a bold-worthy word)
-        const isOrgLine = /^[A-Z]/.test(left) && !left.startsWith('•');
-        doc.setFont('times', isOrgLine ? 'bold' : 'italic');
-        doc.setFontSize(10 * scale);
-        doc.text(left, marginL, y);
-        doc.setFont('times', 'italic');
-        doc.text(right, pageW - marginR, y, { align: 'right' });
-        y += lineH;
-        continue;
-      }
-
-      // Regular text line
-      doc.setFont('times', 'normal');
-      doc.setFontSize(10 * scale);
-      const wrapped = doc.splitTextToSize(trimmed, usableW);
-      for (let j = 0; j < wrapped.length; j++) {
-        doc.text(wrapped[j], marginL, y);
-        y += lineH;
       }
     }
 
