@@ -95,6 +95,8 @@ export default async function handler(req, res) {
   res.setHeader('Content-Type', 'text/event-stream');
   res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate');
   res.setHeader('Connection', 'keep-alive');
+  res.setHeader('X-Accel-Buffering', 'no'); // Disable Nginx/Vercel proxy buffering
+  res.flushHeaders(); // Send headers immediately so the stream is established
 
   try {
     // Search for reference resumes
@@ -178,7 +180,8 @@ Focus on making every change meaningful, measurable where possible, and sounding
     res.write(`data: ${JSON.stringify({ done: true, result })}\n\n`);
     res.end();
   } catch (error) {
-    res.write(`data: ${JSON.stringify({ error: error.message })}\n\n`);
+    const msg = error?.status ? `API error ${error.status}: ${error.message}` : (error.message || 'Unknown error');
+    res.write(`data: ${JSON.stringify({ error: msg })}\n\n`);
     res.end();
   }
 }
