@@ -169,7 +169,12 @@ ${jobDescription}${referenceContext}
 
 Provide your response in TWO clearly separated parts:
 
-PART 1 — JSON only (no resume text here):
+PART 1 — Tailored resume as plain text (no JSON, no code block, no separator lines):
+RESUME_START
+<full optimized resume text here>
+RESUME_END
+
+PART 2 — JSON only (no resume text here):
 \`\`\`json
 {
   "matchScore": <0-100. Keyword overlap 40% + experience match 35% + skills 25%. Strong tailored resume = 70-85. Below 60 only for major gaps.>,
@@ -177,12 +182,7 @@ PART 1 — JSON only (no resume text here):
   "missingKeywords": [<3-5 short strings>],
   "changes": [<6-8 changes, each: {"original":"<brief excerpt>","replacement":"<brief excerpt>","reason":"<one sentence>"}>]
 }
-\`\`\`
-
-PART 2 — Tailored resume as plain text (no JSON, no code block, no separator lines):
-RESUME_START
-<full optimized resume text here>
-RESUME_END`
+\`\`\``
       }],
     });
 
@@ -194,31 +194,39 @@ RESUME_END`
     }
 
     // Parse and send final result
-    // Extract JSON block (between ```json and ```)
-    const jsonBlockMatch = fullText.match(/```json\s*([\s\S]*?)```/i);
-    // Extract resume plain text: between RESUME_START and RESUME_END (or end of string if truncated)
+    // Extract resume text first (PART 1 — always present even if truncated)
     const resumeMatch = fullText.match(/RESUME_START\s*([\s\S]*?)\s*RESUME_END/) ||
                         fullText.match(/RESUME_START\s*([\s\S]+)$/);
 
-    if (!jsonBlockMatch && !resumeMatch) throw new Error('Failed to parse AI response');
+    if (!resumeMatch) throw new Error('Failed to parse AI response');
 
+    // Extract JSON block (PART 2 — gracefully degrade if truncated)
+    const jsonBlockMatch = fullText.match(/```json\s*([\s\S]*?)```/i);
     let result;
     if (jsonBlockMatch) {
-      result = JSON.parse(repairJSON(jsonBlockMatch[1].trim()));
+      try {
+        result = JSON.parse(repairJSON(jsonBlockMatch[1].trim()));
+      } catch {
+        result = {};
+      }
     } else {
-      // Fallback: try to find any JSON object
-      const fallback = fullText.replace(/```json\s*/gi, '').replace(/```/g, '');
-      const jsonMatch = fallback.match(/\{[\s\S]*/);
-      if (!jsonMatch) throw new Error('Failed to parse AI response');
-      result = JSON.parse(repairJSON(jsonMatch[0]));
+      // Try to find any partial JSON object after RESUME_END
+      const afterResume = fullText.split('RESUME_END')[1] || '';
+      const jsonMatch = afterResume.match(/\{[\s\S]+/);
+      if (jsonMatch) {
+        try { result = JSON.parse(repairJSON(jsonMatch[0])); } catch { result = {}; }
+      } else {
+        result = {};
+      }
     }
 
-    // Extract resume text
-    if (resumeMatch) {
-      result.tailoredResume = resumeMatch[1].trim();
-    } else if (!result.tailoredResume) {
-      throw new Error('Failed to extract resume text');
-    }
+    // Apply defaults if JSON was missing or incomplete
+    if (!result.matchScore) result.matchScore = null;
+    if (!result.strengths) result.strengths = [];
+    if (!result.missingKeywords) result.missingKeywords = [];
+    if (!result.changes) result.changes = [];
+
+    result.tailoredResume = resumeMatch[1].trim();
 
     // Strip any separator lines the AI generated
     result.tailoredResume = result.tailoredResume
