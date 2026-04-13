@@ -42,11 +42,15 @@ async function searchReferenceResumes(jobDescription) {
   }
 
   try {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 3000);
     const response = await fetch('https://google.serper.dev/search', {
       method: 'POST',
       headers: { 'X-API-KEY': process.env.SERPER_API_KEY, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ q: query, num: 3 })
+      body: JSON.stringify({ q: query, num: 3 }),
+      signal: controller.signal
     });
+    clearTimeout(timeout);
     const data = await response.json();
 
     const snippets = (data.organic || [])
@@ -110,7 +114,7 @@ export default async function handler(req, res) {
 
     const stream = anthropic.messages.stream({
       model: 'claude-sonnet-4-6',
-      max_tokens: 3500,
+      max_tokens: 2000,
       messages: [{
         role: 'user',
         content: `You are an expert resume optimizer specializing in ATS (Applicant Tracking System) optimization and authentic, human-sounding professional writing.
