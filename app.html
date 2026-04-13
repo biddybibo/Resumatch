@@ -498,7 +498,9 @@
     const bTxt = mL + 18;
     const bW = W - 18;
 
-    const rawLines = text.split('\n');
+    // Strip lines that are only % chars and whitespace before any processing
+    const cleanText = text.replace(/^[%\s]+$/gm, '');
+    const rawLines = cleanText.split('\n');
 
     // Patterns
     const sectionRe = /^[A-Z][A-Z &\/\-,]{2,}$/;
