@@ -710,11 +710,10 @@
 
         case 'project':
           y += 2;
-          doc.setFont('times', 'bold');
+          doc.setFont('times', 'italic');
           doc.setFontSize(sz);
           doc.text(tk.title, mL, y);
           if (tk.location) {
-            doc.setFont('times', 'italic');
             doc.text(tk.location, rX, y, { align: 'right' });
           }
           y += lh;
