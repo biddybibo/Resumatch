@@ -114,7 +114,7 @@ export default async function handler(req, res) {
 
     const stream = anthropic.messages.stream({
       model: 'claude-sonnet-4-6',
-      max_tokens: 3000,
+      max_tokens: 2000,
       messages: [{
         role: 'user',
         content: `You are an expert resume optimizer specializing in ATS optimization and professional resume writing standards.
@@ -141,10 +141,10 @@ ${jobDescription}${referenceContext}
 Please provide your response in the following JSON format:
 {
   "matchScore": <number 0-100>,
-  "strengths": [<list of 3-5 strengths already present that align with the job>],
-  "missingKeywords": [<list of 3-5 important keywords from job description not in resume>],
-  "tailoredResume": "<the full optimized resume text>",
-  "changes": [<list of 8-12 most impactful changes made, each with "original", "replacement", and "reason" fields>]
+  "strengths": [<3-5 short strings>],
+  "missingKeywords": [<3-5 short strings>],
+  "tailoredResume": "<full optimized resume text>",
+  "changes": [<6-8 changes, each: {"original":"<brief excerpt>","replacement":"<brief excerpt>","reason":"<one short sentence>"}>]
 }
 
 EXAMPLES OF GOOD VS BAD CHANGES:
