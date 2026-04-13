@@ -489,8 +489,8 @@
     const doc = new jsPDF({ unit: 'pt', format: 'letter' });
     const pageW = doc.internal.pageSize.getWidth();
     const pageH = doc.internal.pageSize.getHeight();
-    // Tight margins like the USC template
-    const mL = 36, mR = 36, mT = 36, mB = 30;
+    // USC Career Center: 0.5 inch margins = 36pt all sides
+    const mL = 36, mR = 36, mT = 36, mB = 36;
     const W = pageW - mL - mR;
     const rX = pageW - mR;
     // Bullet indent: small dot then text
@@ -606,7 +606,7 @@
         if (tk.t === 'gap') { h += 2; continue; }
         if (tk.t === 'name') { h += sz * 2; continue; }
         if (tk.t === 'contact') { h += sz * 1.3; continue; }
-        if (tk.t === 'section') { h += sz * 1.0 + 8; continue; }
+        if (tk.t === 'section') { h += 12 * 1.0 + 8; continue; }
         if (tk.t === 'org') {
           h += lh;
           if (tk.sub) h += lh;
@@ -633,8 +633,8 @@
       return h + mB;
     }
 
-    // Find optimal font size (start at 10.5, shrink until fits)
-    let sz = 10.5;
+    // Find optimal font size (start at 11pt per USC guidelines, shrink if needed)
+    let sz = 11;
     while (sz > 6 && meas(sz) > pageH) sz -= 0.25;
     const lh = sz * 1.25;
 
@@ -669,40 +669,44 @@
         case 'section':
           y += 5;
           doc.setFont('times', 'bold');
-          doc.setFontSize(sz);
+          doc.setFontSize(12);
           doc.text(tk.v, mL, y);
           y += 3;
           doc.setDrawColor(0);
           doc.setLineWidth(0.6);
           doc.line(mL, y, rX, y);
-          y += sz * 1.0;
+          y += 12;
           break;
 
         case 'org':
-          doc.setFont('times', 'bold');
           doc.setFontSize(sz);
+          if (tk.sub) {
+            // USC format: position title first (bold) + date (italic right)
+            doc.setFont('times', 'bold');
+            doc.text(tk.sub.left, mL, y);
+            if (tk.sub.right) {
+              doc.setFont('times', 'italic');
+              doc.text(tk.sub.right, rX, y, { align: 'right' });
+            }
+            y += lh;
+          }
+          // Company/org name (bold) + location (italic right)
+          doc.setFont('times', 'bold');
           doc.text(tk.left, mL, y);
           if (tk.right) {
             doc.setFont('times', 'italic');
             doc.text(tk.right, rX, y, { align: 'right' });
           }
           y += lh;
-          if (tk.sub) {
-            doc.setFont('times', 'italic');
-            doc.setFontSize(sz);
-            doc.text(tk.sub.left, mL, y);
-            if (tk.sub.right) {
-              doc.text(tk.sub.right, rX, y, { align: 'right' });
-            }
-            y += lh;
-          }
           break;
 
         case 'sub':
-          doc.setFont('times', 'italic');
+          // Standalone sub (e.g. university name in education): bold left, italic right
+          doc.setFont('times', 'bold');
           doc.setFontSize(sz);
           doc.text(tk.left, mL, y);
           if (tk.right) {
+            doc.setFont('times', 'italic');
             doc.text(tk.right, rX, y, { align: 'right' });
           }
           y += lh;
