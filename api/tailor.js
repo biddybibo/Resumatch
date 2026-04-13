@@ -128,8 +128,9 @@ CRITICAL RULES:
 6. KEYWORD MATCHING: Naturally incorporate keywords from the job description where they genuinely fit the candidate's experience.
 7. MAINTAIN HONESTY: Only work with what is already in the resume. Never fabricate experience, skills, or accomplishments.
 8. PROPER GRAMMAR: Correct all spelling, punctuation, and grammar errors. Ensure consistent formatting throughout.
-9. DEGREE TITLE: Write out the full official degree title (e.g. "Bachelor of Arts in Economics" not "BA Economics").
-10. MINIMUM BULLETS: Each position must have at least 2-3 bullet points. If the original has fewer, expand from context.
+9. NO SEPARATOR LINES: Do NOT include any lines made of repeated symbols like %%%%%, -----, =====, ****. Only section header text, no decorative separators.
+10. DEGREE TITLE: Write out the full official degree title (e.g. "Bachelor of Arts in Economics" not "BA Economics").
+11. MINIMUM BULLETS: Each position must have at least 2-3 bullet points. If the original has fewer, expand from context.
 
 ORIGINAL RESUME:
 ${resume}
@@ -173,6 +174,14 @@ Focus on making every change meaningful, measurable where possible, and sounding
     if (!jsonMatch) throw new Error('Failed to parse AI response');
 
     const result = JSON.parse(repairJSON(jsonMatch[0]));
+
+    // Strip any separator lines (%%%%%, ----, ====, etc.) the AI generated
+    if (result.tailoredResume) {
+      result.tailoredResume = result.tailoredResume
+        .split('\n')
+        .filter(line => line.trim() === '' || /[a-zA-Z0-9]/.test(line))
+        .join('\n');
+    }
 
     // Increment usage count
     await supabase
