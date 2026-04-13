@@ -147,14 +147,15 @@ CRITICAL RULES:
 9. NO SEPARATOR LINES: Do NOT include any lines made of repeated symbols like %%%%%, -----, =====, ****. Only section header text, no decorative separators.
 10. DEGREE TITLE: Write out the full official degree title (e.g. "Bachelor of Arts in Economics" not "BA Economics").
 11. MINIMUM BULLETS: Each position must have at least 2-3 bullet points. If the original has fewer, expand from context.
-12. RESUME FORMAT — follow this exact structure for every experience entry:
+12. PROFESSIONAL SUMMARY: Always include a SUMMARY section immediately after the header (before EDUCATION). Write 2-3 concise sentences (no pronouns) that highlight the candidate's top skills, years of experience, and alignment with the job. Tailor it to the job description keywords. This helps fill the page and improves ATS scoring.
+13. RESUME FORMAT — follow this exact structure for every experience entry:
     Job Title (mixed case)                    Month Year – Month Year
     Company Name, City, State
     • Bullet starting with action verb
     • Bullet starting with action verb
     Do NOT use ALL CAPS for company names. Use • for bullets only (not dashes).
-13. SECTION HEADERS must be ALL CAPS (e.g. EDUCATION, EXPERIENCE, ACADEMIC PROJECTS).
-14. Each bullet must be 1-2 lines maximum.
+14. SECTION HEADERS must be ALL CAPS (e.g. SUMMARY, EDUCATION, EXPERIENCE, ACADEMIC PROJECTS).
+15. Each bullet must be 1-2 lines maximum.
 
 ORIGINAL RESUME:
 ${resume}
