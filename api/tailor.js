@@ -5,16 +5,32 @@ const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_KEY);
 
 function repairJSON(str) {
-  let result = str;
-  const opens = [];
+  // Pass 1: escape literal control characters inside strings
+  // (AI often writes literal \n instead of \\n inside JSON string values)
+  let fixed = '';
   let inString = false, escape = false;
+  for (let i = 0; i < str.length; i++) {
+    const ch = str[i];
+    if (escape) { escape = false; fixed += ch; continue; }
+    if (ch === '\\' && inString) { escape = true; fixed += ch; continue; }
+    if (ch === '"') { inString = !inString; fixed += ch; continue; }
+    if (inString && ch === '\n') { fixed += '\\n'; continue; }
+    if (inString && ch === '\r') { fixed += '\\r'; continue; }
+    if (inString && ch === '\t') { fixed += '\\t'; continue; }
+    fixed += ch;
+  }
+
+  // Pass 2: close any unclosed strings and brackets
+  let result = fixed.trimEnd().replace(/,\s*$/, '');
+  const opens = [];
+  inString = false; escape = false;
   for (const ch of result) {
     if (escape) { escape = false; continue; }
     if (ch === '\\' && inString) { escape = true; continue; }
     if (ch === '"') { inString = !inString; continue; }
     if (inString) continue;
     if (ch === '{' || ch === '[') opens.push(ch === '{' ? '}' : ']');
-    if (ch === '}' || ch === ']') opens.pop();
+    if ((ch === '}' || ch === ']') && opens.length) opens.pop();
   }
   if (inString) result += '"';
   while (opens.length) result += opens.pop();
