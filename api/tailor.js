@@ -154,26 +154,22 @@ ${resume}
 JOB DESCRIPTION:
 ${jobDescription}${referenceContext}
 
-Please provide your response in the following JSON format:
+Provide your response in TWO clearly separated parts:
+
+PART 1 — JSON only (no resume text here):
+\`\`\`json
 {
-  "matchScore": <number 0-100. Score based on: keyword overlap with job description (40%), relevant experience match (35%), skills alignment (25%). A well-tailored resume for a strong candidate should score 70-85. Only score below 60 if there are major gaps.>,
+  "matchScore": <0-100. Keyword overlap 40% + experience match 35% + skills 25%. Strong tailored resume = 70-85. Below 60 only for major gaps.>,
   "strengths": [<3-5 short strings>],
   "missingKeywords": [<3-5 short strings>],
-  "tailoredResume": "<full optimized resume text>",
-  "changes": [<6-8 changes, each: {"original":"<brief excerpt>","replacement":"<brief excerpt>","reason":"<one short sentence>"}>]
+  "changes": [<6-8 changes, each: {"original":"<brief excerpt>","replacement":"<brief excerpt>","reason":"<one sentence>"}>]
 }
+\`\`\`
 
-EXAMPLES OF GOOD VS BAD CHANGES:
-❌ BAD: "Spearheaded cross-functional initiatives to drive synergistic outcomes"
-✅ GOOD: "Led team of 5 to launch new feature, increasing user engagement by 30%"
-
-❌ BAD: "Leveraged cutting-edge technologies to optimize performance"
-✅ GOOD: "Improved page load time from 3s to 0.8s using React optimization techniques"
-
-❌ BAD: "Championed strategic vision across multiple stakeholders"
-✅ GOOD: "Coordinated with product, design, and engineering teams to deliver Q3 roadmap"
-
-Focus on making every change meaningful, measurable where possible, and sounding authentically human.`
+PART 2 — Tailored resume as plain text (no JSON, no code block, no separator lines):
+RESUME_START
+<full optimized resume text here>
+RESUME_END`
       }],
     });
 
@@ -185,19 +181,36 @@ Focus on making every change meaningful, measurable where possible, and sounding
     }
 
     // Parse and send final result
-    const stripped = fullText.replace(/```json\s*/gi, '').replace(/```/g, '');
-    const jsonMatch = stripped.match(/\{[\s\S]*/);
-    if (!jsonMatch) throw new Error('Failed to parse AI response');
+    // Extract JSON block (between ```json and ```)
+    const jsonBlockMatch = fullText.match(/```json\s*([\s\S]*?)```/i);
+    // Extract resume plain text (between RESUME_START and RESUME_END)
+    const resumeMatch = fullText.match(/RESUME_START\s*([\s\S]*?)\s*RESUME_END/);
 
-    const result = JSON.parse(repairJSON(jsonMatch[0]));
+    if (!jsonBlockMatch && !resumeMatch) throw new Error('Failed to parse AI response');
 
-    // Strip any separator lines (%%%%%, ----, ====, etc.) the AI generated
-    if (result.tailoredResume) {
-      result.tailoredResume = result.tailoredResume
-        .split('\n')
-        .filter(line => line.trim() === '' || /[a-zA-Z0-9]/.test(line))
-        .join('\n');
+    let result;
+    if (jsonBlockMatch) {
+      result = JSON.parse(repairJSON(jsonBlockMatch[1].trim()));
+    } else {
+      // Fallback: try to find any JSON object
+      const fallback = fullText.replace(/```json\s*/gi, '').replace(/```/g, '');
+      const jsonMatch = fallback.match(/\{[\s\S]*/);
+      if (!jsonMatch) throw new Error('Failed to parse AI response');
+      result = JSON.parse(repairJSON(jsonMatch[0]));
     }
+
+    // Extract resume text
+    if (resumeMatch) {
+      result.tailoredResume = resumeMatch[1].trim();
+    } else if (!result.tailoredResume) {
+      throw new Error('Failed to extract resume text');
+    }
+
+    // Strip any separator lines the AI generated
+    result.tailoredResume = result.tailoredResume
+      .split('\n')
+      .filter(line => line.trim() === '' || /[a-zA-Z0-9]/.test(line))
+      .join('\n');
 
     // Increment usage count
     await supabase
