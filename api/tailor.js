@@ -124,7 +124,6 @@ CRITICAL RULES:
 2. ADD QUANTIFIABLE ACHIEVEMENTS: When possible, replace vague statements with specific numbers, percentages, timeframes, or measurable outcomes. If the original resume lacks metrics, suggest realistic placeholders in [brackets] that the user should fill in.
 3. MAINTAIN HONESTY: Only work with what's already in the resume. Never fabricate experience, skills, or accomplishments.
 4. KEYWORD MATCHING: Naturally incorporate keywords from the job description where they genuinely fit the candidate's experience.
-5. BULLET LENGTH: Every bullet point must fit on a single line — keep each under 120 characters. Be concise and punchy. Cut filler words.
 5. HUMAN VOICE: Write in clear, professional language that sounds like a real person wrote it, not an AI or corporate template.
 
 ORIGINAL RESUME:
