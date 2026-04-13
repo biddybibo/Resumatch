@@ -537,7 +537,7 @@
 
       if (bulletRe.test(tr)) { tokens.push({ t: 'bullet', v: tr.replace(bulletRe, '') }); continue; }
 
-      // Summary section: render as plain text, no two-column detection
+      // Professional Summary section: render as plain text, no two-column detection
       if (curSection.includes('SUMMARY')) { tokens.push({ t: 'text', v: tr }); continue; }
 
       // Two-column line (org/position with date or location on right)
