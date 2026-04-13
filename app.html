@@ -526,8 +526,10 @@
       if (i === nameIdx) { tokens.push({ t: 'name', v: tr }); continue; }
       if (i === contactIdx) { tokens.push({ t: 'contact', v: tr }); continue; }
 
-      // Skip separator lines made of repeated symbols (%, -, =, etc.) with optional spaces
-      if (/^([%\-=_*#~]\s*){3,}$/.test(tr)) { tokens.push({ t: 'gap' }); continue; }
+      // Skip lines that are only % symbols and whitespace (AI-generated separators)
+      if (tr.includes('%') && tr.replace(/[%\s]/g, '').length === 0) { tokens.push({ t: 'gap' }); continue; }
+      // Skip other pure-symbol separator lines
+      if (/^[\-=_*#~\s]{3,}$/.test(tr) && /[\-=_*#~]/.test(tr)) { tokens.push({ t: 'gap' }); continue; }
 
       if (sectionRe.test(tr)) { curSection = tr; tokens.push({ t: 'section', v: tr }); continue; }
 
@@ -597,10 +599,7 @@
         }
         if (tk.t === 'sub') { h += lh; continue; }
         if (tk.t === 'project') { h += lh + 1; continue; }
-        if (tk.t === 'bullet') {
-          doc.setFontSize(sz); doc.setFont('times','normal');
-          h += doc.splitTextToSize(tk.v, bW).length * lh; continue;
-        }
+        if (tk.t === 'bullet') { h += lh; continue; }
         if (tk.t === 'skill') {
           doc.setFontSize(sz); doc.setFont('times','bold');
           const lW = doc.getTextWidth(tk.label + ': ');
@@ -666,7 +665,7 @@
           doc.setFontSize(sz);
           doc.text(tk.left, mL, y);
           if (tk.right) {
-            doc.setFont('times', 'normal');
+            doc.setFont('times', 'italic');
             doc.text(tk.right, rX, y, { align: 'right' });
           }
           y += lh;
@@ -704,10 +703,17 @@
           doc.setFontSize(sz);
           drawBullet(bDot, y);
           const wrapped = doc.splitTextToSize(tk.v, bW);
-          for (let j = 0; j < wrapped.length; j++) {
-            doc.text(wrapped[j], bTxt, y);
-            y += lh;
+          if (wrapped.length === 1) {
+            doc.text(wrapped[0], bTxt, y);
+          } else {
+            // Truncate to single line: fit as much as possible with ellipsis
+            let line = wrapped[0];
+            while (line.length > 0 && doc.getTextWidth(line + '…') > bW) {
+              line = line.slice(0, -1).trimEnd();
+            }
+            doc.text(line + '…', bTxt, y);
           }
+          y += lh;
           break;
         }
 
