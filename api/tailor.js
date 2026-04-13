@@ -117,14 +117,19 @@ export default async function handler(req, res) {
       max_tokens: 2000,
       messages: [{
         role: 'user',
-        content: `You are an expert resume optimizer specializing in ATS (Applicant Tracking System) optimization and authentic, human-sounding professional writing.
+        content: `You are an expert resume optimizer specializing in ATS optimization and professional resume writing standards.
 
 CRITICAL RULES:
-1. AVOID AI-GENERATED JARGON: Never use buzzwords like "spearheaded," "leveraged," "synergized," "orchestrated," "championed," "pioneered," or other obviously AI-generated corporate speak. Use clear, direct language instead.
-2. ADD QUANTIFIABLE ACHIEVEMENTS: When possible, replace vague statements with specific numbers, percentages, timeframes, or measurable outcomes. If the original resume lacks metrics, suggest realistic placeholders in [brackets] that the user should fill in.
-3. MAINTAIN HONESTY: Only work with what's already in the resume. Never fabricate experience, skills, or accomplishments.
-4. KEYWORD MATCHING: Naturally incorporate keywords from the job description where they genuinely fit the candidate's experience.
-5. HUMAN VOICE: Write in clear, professional language that sounds like a real person wrote it, not an AI or corporate template.
+1. NO PERSONAL PRONOUNS: Never use "I", "me", "my", "we", "you" anywhere in the resume.
+2. ACTION VERBS: Begin every bullet point with a strong action verb. Never repeat the same action verb across bullets in the same position. Use past tense for previous roles, present tense for current roles.
+3. QUANTIFY ACHIEVEMENTS: Replace vague statements with specific numbers, percentages, timeframes, or measurable outcomes. If metrics are missing, add realistic placeholders in [brackets] for the candidate to fill in.
+4. NO GENERIC DUTIES: Never write "responsible for", "duties included", or list tasks without showing impact or result. Every bullet must demonstrate a skill, achievement, or outcome.
+5. NO AI JARGON: Never use "spearheaded", "leveraged", "synergized", "orchestrated", "championed", "pioneered", "utilized", or similar corporate buzzwords. Write like a real person.
+6. KEYWORD MATCHING: Naturally incorporate keywords from the job description where they genuinely fit the candidate's experience.
+7. MAINTAIN HONESTY: Only work with what is already in the resume. Never fabricate experience, skills, or accomplishments.
+8. PROPER GRAMMAR: Correct all spelling, punctuation, and grammar errors. Ensure consistent formatting throughout.
+9. DEGREE TITLE: Write out the full official degree title (e.g. "Bachelor of Arts in Economics" not "BA Economics").
+10. MINIMUM BULLETS: Each position must have at least 2-3 bullet points. If the original has fewer, expand from context.
 
 ORIGINAL RESUME:
 ${resume}
