@@ -526,8 +526,8 @@
       if (i === nameIdx) { tokens.push({ t: 'name', v: tr }); continue; }
       if (i === contactIdx) { tokens.push({ t: 'contact', v: tr }); continue; }
 
-      // Skip separator lines made of repeated symbols (%, -, =, etc.)
-      if (/^[%\-=_*#~]{3,}$/.test(tr)) { tokens.push({ t: 'gap' }); continue; }
+      // Skip separator lines made of repeated symbols (%, -, =, etc.) with optional spaces
+      if (/^([%\-=_*#~]\s*){3,}$/.test(tr)) { tokens.push({ t: 'gap' }); continue; }
 
       if (sectionRe.test(tr)) { curSection = tr; tokens.push({ t: 'section', v: tr }); continue; }
 
