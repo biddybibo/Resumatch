@@ -130,7 +130,7 @@ export default async function handler(req, res) {
 
     const stream = anthropic.messages.stream({
       model: 'claude-sonnet-4-6',
-      max_tokens: 2000,
+      max_tokens: 2800,
       messages: [{
         role: 'user',
         content: `You are an expert resume optimizer specializing in ATS optimization and professional resume writing standards.
@@ -196,8 +196,9 @@ RESUME_END`
     // Parse and send final result
     // Extract JSON block (between ```json and ```)
     const jsonBlockMatch = fullText.match(/```json\s*([\s\S]*?)```/i);
-    // Extract resume plain text (between RESUME_START and RESUME_END)
-    const resumeMatch = fullText.match(/RESUME_START\s*([\s\S]*?)\s*RESUME_END/);
+    // Extract resume plain text: between RESUME_START and RESUME_END (or end of string if truncated)
+    const resumeMatch = fullText.match(/RESUME_START\s*([\s\S]*?)\s*RESUME_END/) ||
+                        fullText.match(/RESUME_START\s*([\s\S]+)$/);
 
     if (!jsonBlockMatch && !resumeMatch) throw new Error('Failed to parse AI response');
 
