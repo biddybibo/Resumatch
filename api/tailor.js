@@ -156,7 +156,7 @@ ${jobDescription}${referenceContext}
 
 Please provide your response in the following JSON format:
 {
-  "matchScore": <number 0-100>,
+  "matchScore": <number 0-100. Score based on: keyword overlap with job description (40%), relevant experience match (35%), skills alignment (25%). A well-tailored resume for a strong candidate should score 70-85. Only score below 60 if there are major gaps.>,
   "strengths": [<3-5 short strings>],
   "missingKeywords": [<3-5 short strings>],
   "tailoredResume": "<full optimized resume text>",

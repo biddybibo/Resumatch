@@ -564,9 +564,22 @@
         tokens.push({ t: 'skill', label: m[1].trim(), val: m[2].trim() }); continue;
       }
 
-      // Project title (bold, under PROJECTS section)
-      if (curSection === 'PROJECTS' && !bulletRe.test(tr)) {
-        tokens.push({ t: 'project', v: tr }); continue;
+      // Project entry (under any PROJECTS section)
+      if (curSection.includes('PROJECT') && !bulletRe.test(tr)) {
+        // Parse: "Title — Location    Date" or "Title — Location" or just "Title"
+        const dateMatch = tr.match(dateRe);
+        let title = tr, location = '', date = '';
+        if (dateMatch) {
+          date = dateMatch[0].trim();
+          const withoutDate = tr.slice(0, tr.lastIndexOf(dateMatch[0])).trim().replace(/[—–,\s]+$/, '');
+          const dash = withoutDate.match(/^(.+?)\s*[—–]\s*(.+)$/);
+          title = dash ? dash[1].trim() : withoutDate;
+          location = dash ? dash[2].trim() : '';
+        } else {
+          const dash = tr.match(/^(.+?)\s*[—–]\s*(.+)$/);
+          if (dash) { title = dash[1].trim(); location = dash[2].trim(); }
+        }
+        tokens.push({ t: 'project', title, location, date }); continue;
       }
 
       // Standalone org-like line (all caps, no date)
@@ -593,14 +606,14 @@
         if (tk.t === 'gap') { h += 2; continue; }
         if (tk.t === 'name') { h += sz * 2; continue; }
         if (tk.t === 'contact') { h += sz * 1.3; continue; }
-        if (tk.t === 'section') { h += sz * 1.8; continue; }
+        if (tk.t === 'section') { h += sz * 1.0 + 8; continue; }
         if (tk.t === 'org') {
           h += lh;
           if (tk.sub) h += lh;
           continue;
         }
         if (tk.t === 'sub') { h += lh; continue; }
-        if (tk.t === 'project') { h += lh + 1; continue; }
+        if (tk.t === 'project') { h += lh * (tk.date ? 2 : 1) + 2; continue; }
         if (tk.t === 'bullet') {
           doc.setFontSize(sz); doc.setFont('times','normal');
           h += doc.splitTextToSize(tk.v, bW).length * lh; continue;
@@ -654,15 +667,15 @@
           break;
 
         case 'section':
-          y += 3;
+          y += 5;
           doc.setFont('times', 'bold');
           doc.setFontSize(sz);
           doc.text(tk.v, mL, y);
-          y += 2;
+          y += 3;
           doc.setDrawColor(0);
           doc.setLineWidth(0.6);
           doc.line(mL, y, rX, y);
-          y += sz * 0.7;
+          y += sz * 1.0;
           break;
 
         case 'org':
@@ -696,11 +709,20 @@
           break;
 
         case 'project':
-          y += 1;
+          y += 2;
           doc.setFont('times', 'bold');
           doc.setFontSize(sz);
-          doc.text(tk.v, mL, y);
+          doc.text(tk.title, mL, y);
+          if (tk.location) {
+            doc.setFont('times', 'italic');
+            doc.text(tk.location, rX, y, { align: 'right' });
+          }
           y += lh;
+          if (tk.date) {
+            doc.setFont('times', 'italic');
+            doc.text(tk.date, mL, y);
+            y += lh;
+          }
           break;
 
         case 'bullet': {
