@@ -130,7 +130,10 @@
 <nav>
   <div class="nav-dot"></div>
   <a href="/" class="nav-logo" style="text-decoration:none;color:inherit;">RESUMATCH</a>
-  <span class="nav-sub">// AI keyword optimizer</span>
+  <div class="nav-links" style="margin-left:16px;display:flex;gap:4px;">
+    <button class="nav-link active" style="font-size:11px;padding:6px 14px;border-radius:6px;border:1px solid rgba(0,229,160,0.3);color:var(--accent);background:rgba(0,229,160,0.06);font-family:'DM Mono',monospace;letter-spacing:1px;cursor:pointer;">Resume tailor</button>
+    <a href="/cover" class="nav-link" style="font-size:11px;padding:6px 14px;border-radius:6px;border:1px solid transparent;color:var(--muted);text-decoration:none;transition:all 0.2s;letter-spacing:1px;">Cover letter</a>
+  </div>
   <div class="nav-right">
     <span class="nav-usage" id="nav-usage"></span>
     <button class="nav-upgrade" id="nav-upgrade" onclick="upgrade()" style="display:none;">UPGRADE</button>
@@ -225,8 +228,9 @@
         <div id="tab-changes"></div>
       </div>
     </div>
-    <div class="result-footer fade-in">
+    <div class="result-footer fade-in" style="gap:12px;">
       <button class="btn-ghost" onclick="reset()">← START OVER</button>
+      <a href="/cover" id="cl-link" class="btn-ghost" style="border-color:rgba(0,229,160,0.2);color:var(--accent);text-decoration:none;display:inline-flex;align-items:center;">WRITE COVER LETTER →</a>
     </div>
   </div>
 </div>
@@ -451,6 +455,7 @@
             // Update local profile count
             if(profile) profile.tailor_count++;
             updateNavUsage();
+            saveToHistory(msg.result, job);
             renderResult(msg.result);
             resultRendered=true;
           }
@@ -459,6 +464,23 @@
       }
       if(!resultRendered)throw new Error('No response received. Please try again.');
     }catch(e){setScreen('input');showError(e.message||'Something went wrong. Please try again.');}
+  }
+  function saveToHistory(result, jobDescription) {
+    try {
+      const history = JSON.parse(localStorage.getItem('rm_history') || '[]');
+      const lines = jobDescription.split('\n').map(l => l.trim()).filter(l => l.length > 0);
+      const jobTitle = (lines[0] || 'Untitled role').substring(0, 50);
+      const entry = {
+        id: Date.now(),
+        jobTitle,
+        matchScore: result.matchScore || 0,
+        tailoredResume: result.tailoredResume || '',
+        jobDescription,
+        timestamp: Date.now()
+      };
+      history.unshift(entry);
+      localStorage.setItem('rm_history', JSON.stringify(history.slice(0, 10)));
+    } catch(e) { /* localStorage unavailable, skip silently */ }
   }
   function renderResult(r){
     const el=document.getElementById('score-number');

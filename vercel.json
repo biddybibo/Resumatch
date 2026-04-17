@@ -4,6 +4,9 @@
     "api/tailor.js": {
       "maxDuration": 60
     },
+    "api/coverletter.js": {
+      "maxDuration": 60
+    },
     "api/parse-pdf.js": {
       "maxDuration": 30
     },
