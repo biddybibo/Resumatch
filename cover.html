@@ -442,6 +442,7 @@
           if (!line.startsWith('data: ')) continue;
           const msg = JSON.parse(line.slice(6));
           if (msg.error) throw new Error(msg.error);
+          if (msg.retrying) document.getElementById('loading-sub').textContent = `High demand — retrying (${msg.attempt}/${msg.maxRetries})... please wait`;
           if (msg.partial && msg.chars) document.getElementById('loading-sub').textContent = `Writing · ${msg.chars} characters generated...`;
           if (msg.done) { renderResult(msg.result); resultRendered = true; }
         }

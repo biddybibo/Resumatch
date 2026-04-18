@@ -100,7 +100,7 @@ export default async function handler(req, res) {
 
     let fullText = '';
 
-    const stream = anthropic.messages.stream({
+    const streamParams = {
       model: 'claude-sonnet-4-6',
       max_tokens: 1800,
       messages: [{
@@ -150,12 +150,28 @@ ${resume}
 JOB DESCRIPTION:
 ${jobDescription}${companyContext}`
       }]
-    });
+    };
 
-    for await (const chunk of stream) {
-      if (chunk.type === 'content_block_delta' && chunk.delta?.text) {
-        fullText += chunk.delta.text;
-        res.write(`data: ${JSON.stringify({ partial: true, chars: fullText.length })}\n\n`);
+    const MAX_RETRIES = 3;
+    for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
+      try {
+        fullText = '';
+        const stream = anthropic.messages.stream(streamParams);
+        for await (const chunk of stream) {
+          if (chunk.type === 'content_block_delta' && chunk.delta?.text) {
+            fullText += chunk.delta.text;
+            res.write(`data: ${JSON.stringify({ partial: true, chars: fullText.length })}\n\n`);
+          }
+        }
+        break;
+      } catch (err) {
+        if (err?.status === 429 && attempt < MAX_RETRIES) {
+          const waitMs = Math.pow(2, attempt) * 1500;
+          res.write(`data: ${JSON.stringify({ retrying: true, attempt: attempt + 1, maxRetries: MAX_RETRIES, waitMs })}\n\n`);
+          await new Promise(r => setTimeout(r, waitMs));
+        } else {
+          throw err;
+        }
       }
     }
 
