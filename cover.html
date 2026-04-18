@@ -146,6 +146,14 @@
     .empty-link:hover{background:rgba(0,229,160,0.08);}
     .fade-in{animation:fadeIn 0.45s ease both;}
     @keyframes fadeIn{from{opacity:0;transform:translateY(14px);}to{opacity:1;transform:translateY(0);}}
+    .file-drop-zone{position:absolute;top:60px;left:20px;right:20px;bottom:44px;border:2px dashed var(--border);border-radius:8px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;opacity:0;pointer-events:none;transition:all 0.3s;background:rgba(0,0,0,0.5);z-index:10;}
+    .file-drop-zone.drag-over{opacity:1;border-color:var(--accent);background:rgba(0,229,160,0.05);}
+    .file-drop-text{font-size:13px;color:var(--muted);letter-spacing:0.5px;}
+    .file-drop-hint{font-size:11px;color:#555;}
+    .file-upload-btn{background:transparent;border:1px solid var(--border-light);color:var(--muted);font-family:'DM Mono',monospace;font-size:10px;letter-spacing:1px;padding:6px 14px;border-radius:6px;cursor:pointer;transition:all 0.2s;margin-top:6px;display:inline-flex;align-items:center;}
+    .file-upload-btn:hover{border-color:var(--accent);color:var(--accent);}
+    .file-name-display{margin-top:8px;font-size:11px;color:var(--accent);display:none;}
+    .file-name-display.show{display:block;}
   </style>
 </head>
 <body>
@@ -189,15 +197,37 @@
     <div class="error-banner" id="error-banner">⚠ <span id="error-msg"></span></div>
 
     <div class="input-grid fade-in">
-      <div class="card input-card">
+      <div class="card input-card" id="resume-card" style="position:relative;">
         <div class="input-label">YOUR RESUME</div>
         <textarea id="resume-input" placeholder="Paste your resume here — or load from history below...&#10;&#10;• Work experience&#10;• Skills&#10;• Education" oninput="updateCount('resume-input','resume-count')"></textarea>
         <div class="char-count"><span id="resume-count">0</span> chars</div>
+        <button class="file-upload-btn" onclick="document.getElementById('resume-file').click()">
+          <svg style="width:14px;height:14px;vertical-align:middle;margin-right:6px;stroke:currentColor;fill:none;stroke-width:2.5;stroke-linecap:round;stroke-linejoin:round;" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+          UPLOAD PDF/DOC
+        </button>
+        <input type="file" id="resume-file" accept=".pdf,.doc,.docx,.txt" style="display:none" onchange="handleFileUpload(event,'resume')">
+        <div class="file-name-display" id="resume-file-name"></div>
+        <div class="file-drop-zone" id="resume-drop-zone">
+          <svg style="width:40px;height:40px;stroke:var(--muted);fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+          <div class="file-drop-text">Drop your resume file here</div>
+          <div class="file-drop-hint">PDF, DOC, DOCX, or TXT</div>
+        </div>
       </div>
-      <div class="card input-card">
+      <div class="card input-card" id="job-card" style="position:relative;">
         <div class="input-label">JOB DESCRIPTION</div>
         <textarea id="job-input" placeholder="Paste the job posting here...&#10;&#10;• Responsibilities&#10;• Required qualifications&#10;• Preferred skills" oninput="updateCount('job-input','job-count')"></textarea>
         <div class="char-count"><span id="job-count">0</span> chars</div>
+        <button class="file-upload-btn" onclick="document.getElementById('job-file').click()">
+          <svg style="width:14px;height:14px;vertical-align:middle;margin-right:6px;stroke:currentColor;fill:none;stroke-width:2.5;stroke-linecap:round;stroke-linejoin:round;" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+          UPLOAD PDF/DOC
+        </button>
+        <input type="file" id="job-file" accept=".pdf,.doc,.docx,.txt" style="display:none" onchange="handleFileUpload(event,'job')">
+        <div class="file-name-display" id="job-file-name"></div>
+        <div class="file-drop-zone" id="job-drop-zone">
+          <svg style="width:40px;height:40px;stroke:var(--muted);fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+          <div class="file-drop-text">Drop job description here</div>
+          <div class="file-drop-hint">PDF, DOC, DOCX, or TXT</div>
+        </div>
       </div>
     </div>
 
@@ -499,6 +529,60 @@
       </div>`;
     }).join('')}</div>`;
   }
+
+  // ─── File upload & drag-and-drop ─────────────────────────────────────────
+  function setupDragAndDrop(cardId, dropZoneId, type) {
+    const card = document.getElementById(cardId);
+    const dropZone = document.getElementById(dropZoneId);
+    ['dragenter','dragover','dragleave','drop'].forEach(ev => card.addEventListener(ev, e => { e.preventDefault(); e.stopPropagation(); }, false));
+    ['dragenter','dragover'].forEach(ev => card.addEventListener(ev, () => dropZone.classList.add('drag-over'), false));
+    ['dragleave','drop'].forEach(ev => card.addEventListener(ev, () => dropZone.classList.remove('drag-over'), false));
+    card.addEventListener('drop', e => { if (e.dataTransfer.files.length > 0) handleFile(e.dataTransfer.files[0], type); }, false);
+  }
+
+  async function handleFileUpload(event, type) {
+    if (event.target.files[0]) await handleFile(event.target.files[0], type);
+  }
+
+  async function handleFile(file, type) {
+    const inputId = type === 'resume' ? 'resume-input' : 'job-input';
+    const fileNameId = type === 'resume' ? 'resume-file-name' : 'job-file-name';
+    const countId = type === 'resume' ? 'resume-count' : 'job-count';
+    const fileNameDisplay = document.getElementById(fileNameId);
+    fileNameDisplay.textContent = `📎 ${file.name}`;
+    fileNameDisplay.classList.add('show');
+    try {
+      let text = '';
+      if (file.type === 'text/plain') {
+        text = await file.text();
+      } else if (file.type === 'application/pdf') {
+        text = await parseRemote('/api/parse-pdf', file);
+      } else if (file.type === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' || file.type === 'application/msword') {
+        text = await parseRemote('/api/parse-doc', file);
+      } else {
+        showError('Unsupported file type. Please use PDF, DOC, DOCX, or TXT.');
+        return;
+      }
+      document.getElementById(inputId).value = text;
+      updateCount(inputId, countId);
+    } catch (error) {
+      showError('Failed to parse file. Please try copying and pasting the text instead.');
+    }
+  }
+
+  async function parseRemote(endpoint, file) {
+    const formData = new FormData();
+    formData.append('file', file);
+    const response = await fetch(endpoint, { method: 'POST', body: formData });
+    if (!response.ok) throw new Error('Parsing failed');
+    const data = await response.json();
+    return data.text;
+  }
+
+  document.addEventListener('DOMContentLoaded', () => {
+    setupDragAndDrop('resume-card', 'resume-drop-zone', 'resume');
+    setupDragAndDrop('job-card', 'job-drop-zone', 'job');
+  });
 </script>
 </body>
 </html>
