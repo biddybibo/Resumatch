@@ -329,6 +329,7 @@
   let useKeywords = true;
   let lastResume = '';
   let lastJob = '';
+  let lastRecipient = {};
 
   // Auth check — same pattern as app.html
   (async () => {
@@ -462,13 +463,16 @@
   }
 
   function renderResult(r) {
+    lastRecipient = r.recipient || {};
     document.getElementById('cl-strengths').innerHTML = (r.strengths || []).map(s =>
       `<div class="strength-item"><span class="strength-check">✓</span><span class="strength-text">${s}</span></div>`
     ).join('');
     document.getElementById('cl-keywords').innerHTML = (r.keywords || []).map(k =>
       `<span class="keyword-tag">${k}</span>`
     ).join('');
-    document.getElementById('letter-text').textContent = r.coverLetter || '';
+    // Strip dash-only lines before displaying
+    const cleaned = (r.coverLetter || '').split('\n').filter(l => !/^[\-–—\s]+$/.test(l)).join('\n');
+    document.getElementById('letter-text').textContent = cleaned;
     setScreen('result');
   }
 
@@ -628,7 +632,6 @@
     const resumeLines = document.getElementById('resume-input').value
       .split('\n').map(l => l.trim()).filter(l => l);
     const senderName = resumeLines[0] || '';
-    // Find contact line: prefers line with @ or phone digits
     const contactLine = resumeLines.find(l => l.includes('@') || /\(?\d{3}\)?[\s\-]\d{3}/.test(l)) || '';
 
     if (senderName) {
@@ -642,14 +645,24 @@
     writeLine(today);
     gap(lh);
 
-    // ── 3. Parse the cover letter text ──────────────────────────────────────
+    // ── 3. Recipient block ───────────────────────────────────────────────────
+    const rec = lastRecipient || {};
+    if (rec.name || rec.company) {
+      if (rec.name)    writeLine(rec.name);
+      if (rec.title)   writeLine(rec.title);
+      if (rec.company) writeLine(rec.company);
+      if (rec.address) writeLine(rec.address);
+      gap(lh);
+    }
+
+    // ── 4. Parse the cover letter text ──────────────────────────────────────
     const rawText = document.getElementById('letter-text').textContent.trim();
 
-    // Split into paragraphs (double newline or single newline blocks)
+    // Split into paragraphs; strip dash-only lines
     const rawParas = rawText
       .split(/\n{2,}/)
       .map(p => p.replace(/\n/g, ' ').trim())
-      .filter(p => p.length > 0);
+      .filter(p => p.length > 0 && !/^[\-–—\s]+$/.test(p));
 
     let salutation = '';
     const bodyParas = [];

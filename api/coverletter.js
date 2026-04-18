@@ -76,7 +76,13 @@ PART 2 — JSON only:
 \`\`\`json
 {
   "strengths": [<2-3 short strings describing what the letter does well>],
-  "keywords": [<3-5 job keywords naturally incorporated>]
+  "keywords": [<3-5 job keywords naturally incorporated>],
+  "recipient": {
+    "name": "<hiring manager full name if found in job description, else empty string>",
+    "title": "<their title if found, else empty string>",
+    "company": "<company name>",
+    "address": "<company address if found, else empty string>"
+  }
 }
 \`\`\`
 
