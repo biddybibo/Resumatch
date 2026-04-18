@@ -124,6 +124,23 @@
     .result-footer { display:flex; justify-content:center; margin-top:28px; }
     .fade-in { animation:fadeIn 0.45s ease both; }
     @keyframes fadeIn{from{opacity:0;transform:translateY(14px);}to{opacity:1;transform:translateY(0);}}
+    .divider{height:1px;background:var(--border);margin:40px 0 32px;}
+    .hist-section-label{font-size:10px;letter-spacing:2px;color:var(--muted);margin-bottom:8px;}
+    .hist-sub{font-size:11px;color:var(--muted);margin-bottom:20px;line-height:1.6;}
+    .hist-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:14px;}
+    .hist-card{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:16px;cursor:pointer;transition:border-color 0.2s,transform 0.2s;}
+    .hist-card:hover{border-color:rgba(0,229,160,0.4);transform:translateY(-2px);}
+    .hist-card.loaded{border-color:rgba(0,229,160,0.5);background:rgba(0,229,160,0.04);}
+    .hist-badge{font-size:9px;padding:2px 8px;border-radius:20px;background:rgba(0,229,160,0.1);color:var(--accent);border:1px solid rgba(0,229,160,0.2);display:inline-block;margin-bottom:8px;letter-spacing:0.5px;}
+    .hist-badge.old{background:rgba(255,255,255,0.04);color:var(--muted);border-color:var(--border);}
+    .hist-job{font-size:13px;color:var(--text);margin-bottom:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-family:'Syne',sans-serif;font-weight:700;}
+    .hist-date{font-size:10px;color:var(--muted);margin-bottom:10px;}
+    .hist-score-row{display:flex;align-items:baseline;gap:4px;}
+    .hist-score-num{font-size:24px;font-weight:900;font-family:'Syne',sans-serif;}
+    .hist-score-lbl{font-size:9px;color:var(--muted);letter-spacing:1px;}
+    .hist-use{font-size:10px;color:var(--accent);margin-top:10px;padding-top:10px;border-top:1px solid var(--border);}
+    .empty-hist{background:var(--surface);border:1px dashed var(--border-light);border-radius:12px;padding:32px;text-align:center;}
+    .empty-hist p{color:var(--muted);font-size:13px;margin-bottom:12px;line-height:1.7;}
   </style>
 </head>
 <body>
@@ -193,6 +210,11 @@
       </div>
     </div>
     <button class="btn-primary fade-in" onclick="analyze()">ANALYZE & TAILOR →</button>
+
+    <div class="divider"></div>
+    <div class="hist-section-label">PREVIOUS TAILORED RESUMES</div>
+    <div class="hist-sub">Click any card to reload those inputs and re-tailor, or head to the Cover Letter page to write a letter from it.</div>
+    <div id="hist-area"></div>
   </div>
   <div id="loading-screen">
     <div class="dots"><div class="dot"></div><div class="dot"></div><div class="dot"></div><div class="dot"></div><div class="dot"></div></div>
@@ -253,6 +275,7 @@
     const { data: p } = await sb.from('profiles').select('*').eq('id', session.user.id).single();
     profile = p;
     updateNavUsage();
+    renderHistory();
     // Check for upgrade success
     if (new URLSearchParams(window.location.search).get('upgraded') === 'true') {
       window.history.replaceState({}, '', '/app');
@@ -482,6 +505,46 @@
       localStorage.setItem('rm_history', JSON.stringify(history.slice(0, 10)));
     } catch(e) { /* localStorage unavailable, skip silently */ }
   }
+
+  function scoreColor(s){return s>=80?'#00e5a0':s>=60?'#f5c842':'#ff6b6b';}
+  function timeAgo(ts){const d=Date.now()-ts,m=Math.floor(d/60000),h=Math.floor(d/3600000),dy=Math.floor(d/86400000);if(m<1)return'just now';if(m<60)return`${m}m ago`;if(h<24)return`${h}h ago`;return`${dy}d ago`;}
+
+  function loadFromHistory(id) {
+    const history = JSON.parse(localStorage.getItem('rm_history') || '[]');
+    const entry = history.find(e => e.id === id);
+    if (!entry) return;
+    document.getElementById('resume-input').value = entry.tailoredResume || '';
+    document.getElementById('job-input').value = entry.jobDescription || '';
+    updateCount('resume-input','resume-count');
+    updateCount('job-input','job-count');
+    document.querySelectorAll('.hist-card').forEach(c => c.classList.remove('loaded'));
+    document.querySelector(`[data-id="${id}"]`)?.classList.add('loaded');
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }
+
+  function renderHistory() {
+    const history = JSON.parse(localStorage.getItem('rm_history') || '[]');
+    const area = document.getElementById('hist-area');
+    if (!area) return;
+    if (!history.length) {
+      area.innerHTML = `<div class="empty-hist"><p>No tailored resumes yet. Paste your resume and a job description above to get started.</p></div>`;
+      return;
+    }
+    area.innerHTML = `<div class="hist-grid">${history.map(e => {
+      const isRecent = Date.now() - e.timestamp < 86400000;
+      return `<div class="hist-card" data-id="${e.id}" onclick="loadFromHistory(${e.id})">
+        <span class="hist-badge ${isRecent?'':'old'}">${isRecent?'RECENT':timeAgo(e.timestamp).toUpperCase()}</span>
+        <div class="hist-job">${e.jobTitle}</div>
+        <div class="hist-date">${timeAgo(e.timestamp)}</div>
+        <div class="hist-score-row">
+          <span class="hist-score-num" style="color:${scoreColor(e.matchScore)}">${e.matchScore ?? '—'}</span>
+          <span class="hist-score-lbl">MATCH SCORE</span>
+        </div>
+        <div class="hist-use">↗ Re-load this resume</div>
+      </div>`;
+    }).join('')}</div>`;
+  }
+
   function renderResult(r){
     const el=document.getElementById('score-number');
     el.textContent=r.matchScore;el.style.color=scoreColor(r.matchScore);
@@ -811,6 +874,7 @@
     document.querySelectorAll('.tab-btn').forEach((b,i)=>b.classList.toggle('active',i===0));
     document.getElementById('tab-tailored').style.display='block';document.getElementById('tab-changes').style.display='none';
     document.getElementById('copy-btn').style.display='inline-block';document.getElementById('download-btn').style.display='inline-block';hideError();setScreen('input');
+    renderHistory();
   }
 </script>
 </body>
