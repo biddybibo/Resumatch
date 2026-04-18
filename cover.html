@@ -590,127 +590,146 @@
     setupDragAndDrop('job-card', 'job-drop-zone', 'job');
   });
 
-  // ─── Cover Letter PDF (USC business letter format) ────────────────────────
+  // ─── Cover Letter PDF (USC business letter format, single page) ───────────
   function downloadCoverLetterPDF() {
     const { jsPDF } = window.jspdf;
-    const doc = new jsPDF({ unit: 'pt', format: 'letter' });
 
-    const mL = 72, mT = 72, mB = 72;
     const pageW = 612, pageH = 792;
-    const W = pageW - mL - 72; // 468pt usable width
-    const sz = 12;
-    const lh = sz * 1.6;
-    const paraGap = lh * 0.8; // space between paragraphs
+    const mL = 72, mR = 72, mT = 72, mB = 72;
+    const W = pageW - mL - mR;
 
+    // ── Parse inputs ────────────────────────────────────────────────────────
+    const resumeLines = document.getElementById('resume-input').value
+      .split('\n').map(l => l.trim()).filter(l => l);
+    const senderName = resumeLines[0] || '';
+    const contactLine = resumeLines.find(l => l.includes('@') || /\(?\d{3}\)?[\s\-]\d{3}/.test(l)) || '';
+
+    const today = new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
+
+    const rec = lastRecipient || {};
+
+    // Strip all dash lines from letter text
+    const rawText = document.getElementById('letter-text').textContent.trim();
+    const rawParas = rawText
+      .split(/\n{2,}/)
+      .map(p => p.replace(/\n/g, ' ').trim())
+      .filter(p => p.length > 0 && !/^[\-–—=*\s]{2,}$/.test(p));
+
+    const closingRe = /^(best regards|sincerely|yours truly|warm regards|kind regards|respectfully|thank you)/i;
+    let salutation = '', closing = '', signatureName = '';
+    const bodyParas = [];
+
+    for (let i = 0; i < rawParas.length; i++) {
+      const p = rawParas[i];
+      if (!salutation && /^dear\s/i.test(p)) { salutation = p; }
+      else if (!closing && closingRe.test(p)) {
+        closing = p;
+        if (i + 1 < rawParas.length && rawParas[i + 1].split(' ').length <= 6) {
+          signatureName = rawParas[++i];
+        }
+      } else if (!closing) { bodyParas.push(p); }
+    }
+    if (!salutation && bodyParas.length === 0) bodyParas.push(...rawParas);
+
+    // ── Measure total height needed at a given font size ────────────────────
+    function measure(sz) {
+      const doc = new jsPDF({ unit: 'pt', format: 'letter' });
+      doc.setFont('times', 'normal');
+      const lh = sz * 1.5;
+      const pg = sz * 1.8; // paragraph gap
+      let h = mT;
+
+      // Sender
+      if (senderName) { h += sz * 1.6 * 1.1; } // bold 14pt approx
+      if (contactLine) { h += lh; }
+      if (senderName) { h += lh; } // gap after sender
+
+      h += lh; // date
+      h += lh; // gap after date
+
+      // Recipient
+      if (rec.name || rec.company) {
+        if (rec.name)         { h += lh; }
+        if (rec.title)        { h += lh; }
+        if (rec.company)      { h += lh; }
+        if (rec.address)      { h += lh; }
+        if (rec.cityStateZip) { h += lh; }
+        h += lh; // gap after recipient
+      }
+
+      // Salutation
+      if (salutation) { h += lh; h += lh * 0.5; }
+
+      // Body
+      doc.setFontSize(sz);
+      for (const para of bodyParas) {
+        h += doc.splitTextToSize(para, W).length * lh;
+        h += pg;
+      }
+
+      // Closing + signature space + name
+      h += lh * 0.5 + lh + lh * 2.5 + lh;
+      h += mB;
+      return h;
+    }
+
+    // Shrink font until content fits one page (min 9pt)
+    let sz = 12;
+    while (sz > 9 && measure(sz) > pageH) sz -= 0.5;
+
+    // ── Render ───────────────────────────────────────────────────────────────
+    const doc = new jsPDF({ unit: 'pt', format: 'letter' });
+    const lh = sz * 1.5;
+    const pg = sz * 1.8;
     let y = mT;
 
-    function checkPage() { if (y + lh > pageH - mB) { doc.addPage(); y = mT; } }
-
-    function writeLine(text, font = 'normal', size = sz) {
-      checkPage();
+    function line(text, font = 'normal', size = sz) {
       doc.setFont('times', font);
       doc.setFontSize(size);
       doc.text(text, mL, y);
       y += size * 1.5;
     }
 
-    function writePara(text, font = 'normal', size = sz) {
-      doc.setFont('times', font);
-      doc.setFontSize(size);
-      const lineH = size * 1.6;
-      const lines = doc.splitTextToSize(text, W);
-      for (const line of lines) {
-        checkPage();
-        doc.text(line, mL, y);
-        y += lineH;
-      }
+    function para(text) {
+      doc.setFont('times', 'normal');
+      doc.setFontSize(sz);
+      doc.splitTextToSize(text, W).forEach(l => { doc.text(l, mL, y); y += lh; });
     }
 
-    function gap(pts) { y += pts; }
-
-    // ── 1. Sender block from resume ─────────────────────────────────────────
-    const resumeLines = document.getElementById('resume-input').value
-      .split('\n').map(l => l.trim()).filter(l => l);
-    const senderName = resumeLines[0] || '';
-    const contactLine = resumeLines.find(l => l.includes('@') || /\(?\d{3}\)?[\s\-]\d{3}/.test(l)) || '';
-
+    // 1. Sender block
     if (senderName) {
-      writeLine(senderName, 'bold', 14);
-      if (contactLine) writeLine(contactLine, 'normal', sz);
-      gap(lh);
+      line(senderName, 'bold', Math.min(14, sz * 1.15));
+      if (contactLine) line(contactLine);
+      y += lh;
     }
 
-    // ── 2. Date ─────────────────────────────────────────────────────────────
-    const today = new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
-    writeLine(today);
-    gap(lh);
+    // 2. Date
+    line(today);
+    y += lh;
 
-    // ── 3. Recipient block ───────────────────────────────────────────────────
-    const rec = lastRecipient || {};
+    // 3. Recipient block
     if (rec.name || rec.company) {
-      if (rec.name)    writeLine(rec.name);
-      if (rec.title)   writeLine(rec.title);
-      if (rec.company) writeLine(rec.company);
-      if (rec.address) writeLine(rec.address);
-      gap(lh);
+      if (rec.name)         line(rec.name);
+      if (rec.title)        line(rec.title);
+      if (rec.company)      line(rec.company);
+      if (rec.address)      line(rec.address);
+      if (rec.cityStateZip) line(rec.cityStateZip);
+      y += lh;
     }
 
-    // ── 4. Parse the cover letter text ──────────────────────────────────────
-    const rawText = document.getElementById('letter-text').textContent.trim();
+    // 4. Salutation
+    if (salutation) { line(salutation); y += lh * 0.5; }
 
-    // Split into paragraphs; strip dash-only lines
-    const rawParas = rawText
-      .split(/\n{2,}/)
-      .map(p => p.replace(/\n/g, ' ').trim())
-      .filter(p => p.length > 0 && !/^[\-–—\s]+$/.test(p));
+    // 5. Body
+    for (const p of bodyParas) { para(p); y += pg; }
 
-    let salutation = '';
-    const bodyParas = [];
-    let closing = '';
-    let signatureName = '';
-    const closingRe = /^(best regards|sincerely|yours truly|warm regards|kind regards|respectfully|thank you)/i;
+    // 6. Closing
+    y += lh * 0.3;
+    line(closing || 'Best regards,');
+    y += lh * 2.5; // signature space
 
-    for (let i = 0; i < rawParas.length; i++) {
-      const p = rawParas[i];
-      if (!salutation && /^dear\s/i.test(p)) {
-        salutation = p;
-      } else if (!closing && closingRe.test(p)) {
-        closing = p;
-        // Next para is typically the signature name
-        if (i + 1 < rawParas.length && rawParas[i + 1].split(' ').length <= 5) {
-          signatureName = rawParas[i + 1];
-          i++;
-        }
-      } else if (!closing) {
-        bodyParas.push(p);
-      }
-      // discard anything after closing
-    }
-
-    // Fallback: no structure detected — treat everything as body
-    if (!salutation && bodyParas.length === 0) {
-      bodyParas.push(...rawParas);
-    }
-
-    // ── 4. Salutation ───────────────────────────────────────────────────────
-    if (salutation) {
-      writeLine(salutation);
-      gap(lh * 0.5);
-    }
-
-    // ── 5. Body paragraphs ──────────────────────────────────────────────────
-    for (const para of bodyParas) {
-      writePara(para);
-      gap(paraGap);
-    }
-
-    // ── 6. Closing ──────────────────────────────────────────────────────────
-    gap(lh * 0.3);
-    writeLine(closing || 'Best regards,');
-    gap(lh * 2); // room for handwritten signature
-
-    // ── 7. Typed name ───────────────────────────────────────────────────────
-    writeLine(signatureName || senderName);
+    // 7. Typed name
+    line(signatureName || senderName);
 
     const btn = document.getElementById('download-btn');
     doc.save('Cover_Letter.pdf');

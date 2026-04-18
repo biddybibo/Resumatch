@@ -4,17 +4,64 @@ import { createClient } from '@supabase/supabase-js';
 const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_KEY);
 
+// Extract a likely company name from the job description
+function extractCompanyName(jobDescription) {
+  const lines = jobDescription.split('\n').map(l => l.trim()).filter(l => l);
+  // Look for "About [Company]", "Company: X", or "at [Company]" patterns
+  for (const line of lines.slice(0, 20)) {
+    const m = line.match(/^(?:about|company|employer|organization)[:\s]+(.+)/i) ||
+              line.match(/(?:join|at|with)\s+([A-Z][A-Za-z0-9\s&.,'-]{2,40}?)(?:\s*[,.]|$)/);
+    if (m) return m[1].trim().replace(/[.,]+$/, '');
+  }
+  // Fallback: first line that looks like a proper noun (Title Case, short)
+  for (const line of lines.slice(0, 5)) {
+    if (line.length < 60 && /^[A-Z]/.test(line) && !/\b(we|our|you|your|the|and)\b/i.test(line)) {
+      return line.replace(/[.,]+$/, '');
+    }
+  }
+  return '';
+}
+
+async function searchCompanyInfo(companyName) {
+  if (!process.env.SERPER_API_KEY || !companyName) return null;
+  try {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 4000);
+    const response = await fetch('https://google.serper.dev/search', {
+      method: 'POST',
+      headers: { 'X-API-KEY': process.env.SERPER_API_KEY, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ q: `${companyName} headquarters address contact`, num: 3 }),
+      signal: controller.signal
+    });
+    clearTimeout(timeout);
+    const data = await response.json();
+
+    // Pull address/location snippets from organic results and knowledge graph
+    const parts = [];
+    if (data.knowledgeGraph) {
+      const kg = data.knowledgeGraph;
+      if (kg.address) parts.push(kg.address);
+      if (kg.phone) parts.push(kg.phone);
+      if (kg.website) parts.push(kg.website);
+    }
+    (data.organic || []).slice(0, 2).forEach(r => {
+      if (r.snippet) parts.push(r.snippet);
+    });
+    return parts.length ? parts.join(' | ') : null;
+  } catch {
+    return null;
+  }
+}
+
 export default async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
-  // Auth check — same pattern as tailor.js
   const token = req.headers.authorization?.replace('Bearer ', '');
   if (!token) return res.status(401).json({ error: 'Not authenticated' });
 
   const { data: { user }, error: authError } = await supabase.auth.getUser(token);
   if (authError || !user) return res.status(401).json({ error: 'Invalid session' });
 
-  // Check usage — cover letter shares the same Pro gate as tailoring
   const { data: profile } = await supabase
     .from('profiles')
     .select('subscription_status, tailor_count')
@@ -36,7 +83,6 @@ export default async function handler(req, res) {
     direct: 'Be extremely concise — 3 short paragraphs maximum. No fluff. State fit clearly and get to the point fast. Every sentence must earn its place.'
   };
 
-  // Set up SSE — same headers as tailor.js
   res.setHeader('Content-Type', 'text/event-stream');
   res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate');
   res.setHeader('Connection', 'keep-alive');
@@ -44,11 +90,19 @@ export default async function handler(req, res) {
   res.flushHeaders();
 
   try {
+    // Search for company info in parallel before AI call
+    const companyName = extractCompanyName(jobDescription);
+    const [companyInfoRaw] = await Promise.all([searchCompanyInfo(companyName)]);
+
+    const companyContext = companyInfoRaw
+      ? `\n\nCOMPANY INFO (from web search — use for recipient block):\n${companyInfoRaw}`
+      : '';
+
     let fullText = '';
 
     const stream = anthropic.messages.stream({
       model: 'claude-sonnet-4-6',
-      max_tokens: 2000,
+      max_tokens: 1800,
       messages: [{
         role: 'user',
         content: `You are an expert cover letter writer. Write targeted, authentic cover letters that sound like a real person — not a template.
@@ -60,16 +114,18 @@ CRITICAL RULES:
 4. HONEST: Only draw from what is in the resume. Never fabricate experience.
 5. HUMAN: Write like a real person, not a bot. Vary sentence length. Use active voice.
 6. NO AI JARGON: Never use "spearheaded", "leveraged", "synergized", "orchestrated", or similar buzzwords.
-${useKeywords ? '7. KEYWORDS: Naturally weave in relevant keywords from the job description throughout.' : '7. Focus on narrative and authentic fit — do not force keyword insertion.'}
+7. NO DASHES: Never use dash lines (---) or horizontal rules anywhere in the letter.
+8. ONE PAGE: Keep the letter concise — 3-4 paragraphs maximum. Every sentence must earn its place.
+${useKeywords ? '9. KEYWORDS: Naturally weave in relevant keywords from the job description throughout.' : '9. Focus on narrative and authentic fit — do not force keyword insertion.'}
 
 Style: ${styleGuides[style] || styleGuides.story}
 Tone: ${tone}
 
 Provide your response in TWO clearly separated parts:
 
-PART 1 — Cover letter as plain text:
+PART 1 — Cover letter as plain text (salutation through closing only — no header block):
 LETTER_START
-<full cover letter text here>
+<letter starting with "Dear [Name]:" through closing and name>
 LETTER_END
 
 PART 2 — JSON only:
@@ -78,10 +134,11 @@ PART 2 — JSON only:
   "strengths": [<2-3 short strings describing what the letter does well>],
   "keywords": [<3-5 job keywords naturally incorporated>],
   "recipient": {
-    "name": "<hiring manager full name if found in job description, else empty string>",
+    "name": "<hiring manager full name if found, else empty string>",
     "title": "<their title if found, else empty string>",
     "company": "<company name>",
-    "address": "<company address if found, else empty string>"
+    "address": "<street address if found from job description or company info, else empty string>",
+    "cityStateZip": "<city, state zip if found, else empty string>"
   }
 }
 \`\`\`
@@ -90,7 +147,7 @@ RESUME:
 ${resume}
 
 JOB DESCRIPTION:
-${jobDescription}`
+${jobDescription}${companyContext}`
       }]
     });
 
@@ -101,22 +158,27 @@ ${jobDescription}`
       }
     }
 
-    // Parse letter text
     const letterMatch = fullText.match(/LETTER_START\s*([\s\S]*?)\s*LETTER_END/) ||
                         fullText.match(/LETTER_START\s*([\s\S]+)$/);
     if (!letterMatch) throw new Error('Failed to parse cover letter response');
 
-    // Parse JSON metadata
     const jsonBlockMatch = fullText.match(/```json\s*([\s\S]*?)```/i);
-    let meta = { strengths: [], keywords: [] };
+    let meta = { strengths: [], keywords: [], recipient: {} };
     if (jsonBlockMatch) {
       try { meta = JSON.parse(jsonBlockMatch[1].trim()); } catch { /* use defaults */ }
     }
 
+    // Strip any dash lines from letter text
+    const cleanLetter = letterMatch[1].trim()
+      .split('\n')
+      .filter(l => !/^[\-–—=*#~\s]{2,}$/.test(l))
+      .join('\n');
+
     const result = {
-      coverLetter: letterMatch[1].trim(),
+      coverLetter: cleanLetter,
       strengths: meta.strengths || [],
-      keywords: meta.keywords || []
+      keywords: meta.keywords || [],
+      recipient: meta.recipient || {}
     };
 
     res.write(`data: ${JSON.stringify({ done: true, result })}\n\n`);
