@@ -114,8 +114,9 @@ CRITICAL RULES:
 4. HONEST: Only draw from what is in the resume. Never fabricate experience.
 5. HUMAN: Write like a real person, not a bot. Vary sentence length. Use active voice.
 6. NO AI JARGON: Never use "spearheaded", "leveraged", "synergized", "orchestrated", or similar buzzwords.
-7. NO DASHES: Never use dash lines (---) or horizontal rules anywhere in the letter.
+7. NO DASHES: Never use any dashes — no em-dashes (—), en-dashes (–), hyphens as separators, or dash lines (---). Use commas or semicolons instead.
 8. ONE PAGE: Keep the letter concise — 3-4 paragraphs maximum. Every sentence must earn its place.
+9. CLOSING FORMAT: Write the closing on its own line as just "Sincerely," or "Best regards," — never append the name to the closing line.
 ${useKeywords ? '9. KEYWORDS: Naturally weave in relevant keywords from the job description throughout.' : '9. Focus on narrative and authentic fit — do not force keyword insertion.'}
 
 Style: ${styleGuides[style] || styleGuides.story}

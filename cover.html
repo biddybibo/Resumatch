@@ -470,8 +470,12 @@
     document.getElementById('cl-keywords').innerHTML = (r.keywords || []).map(k =>
       `<span class="keyword-tag">${k}</span>`
     ).join('');
-    // Strip dash-only lines before displaying
-    const cleaned = (r.coverLetter || '').split('\n').filter(l => !/^[\-–—\s]+$/.test(l)).join('\n');
+    // Remove em-dashes and separator lines
+    const cleaned = (r.coverLetter || '')
+      .split('\n')
+      .filter(l => !/^[\-–—=*\s]{2,}$/.test(l))
+      .join('\n')
+      .replace(/\s*[—–]\s*/g, ', ');
     document.getElementById('letter-text').textContent = cleaned;
     setScreen('result');
   }
@@ -608,11 +612,11 @@
 
     const rec = lastRecipient || {};
 
-    // Strip all dash lines from letter text
+    // Strip dash lines and replace inline em-dashes
     const rawText = document.getElementById('letter-text').textContent.trim();
     const rawParas = rawText
       .split(/\n{2,}/)
-      .map(p => p.replace(/\n/g, ' ').trim())
+      .map(p => p.replace(/\n/g, ' ').replace(/\s*[—–]\s*/g, ', ').trim())
       .filter(p => p.length > 0 && !/^[\-–—=*\s]{2,}$/.test(p));
 
     const closingRe = /^(best regards|sincerely|yours truly|warm regards|kind regards|respectfully|thank you)/i;
@@ -624,7 +628,12 @@
       if (!salutation && /^dear\s/i.test(p)) { salutation = p; }
       else if (!closing && closingRe.test(p)) {
         closing = p;
-        if (i + 1 < rawParas.length && rawParas[i + 1].split(' ').length <= 6) {
+        // Split "Sincerely, Full Name" into closing + name
+        const inlineNameMatch = closing.match(/^((?:best regards|sincerely|yours truly|warm regards|kind regards|respectfully|thank you)[,.]?)\s{1,2}([A-Z].{2,})$/i);
+        if (inlineNameMatch) {
+          closing = inlineNameMatch[1];
+          signatureName = inlineNameMatch[2];
+        } else if (i + 1 < rawParas.length && rawParas[i + 1].split(' ').length <= 6) {
           signatureName = rawParas[++i];
         }
       } else if (!closing) { bodyParas.push(p); }
