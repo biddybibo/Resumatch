@@ -96,7 +96,9 @@
     .btn-ghost{background:transparent;border:1px solid var(--border-light);color:var(--muted);border-radius:8px;padding:10px 28px;font-family:'DM Mono',monospace;font-size:11px;letter-spacing:1px;cursor:pointer;transition:border-color 0.2s,color 0.2s;}
     .btn-ghost:hover{border-color:#888;color:#ccc;}
     /* Loading */
-    #loading-screen{display:none;flex-direction:column;align-items:center;justify-content:center;min-height:340px;gap:28px;}
+    #loading-screen{display:none;flex-direction:column;align-items:center;justify-content:center;min-height:100vh;gap:28px;position:fixed;inset:0;z-index:50;overflow:hidden;}
+    #grid-canvas{position:absolute;inset:0;width:100%;height:100%;}
+    .loading-content{position:relative;z-index:1;display:flex;flex-direction:column;align-items:center;gap:28px;}
     .dots{display:flex;gap:10px;}
     .dot{width:8px;height:8px;border-radius:50%;background:var(--accent);animation:pulse 1.6s ease-in-out infinite;}
     .dot:nth-child(2){animation-delay:0.15s;}.dot:nth-child(3){animation-delay:0.3s;}.dot:nth-child(4){animation-delay:0.45s;}.dot:nth-child(5){animation-delay:0.6s;}
@@ -277,9 +279,12 @@
 
   <!-- LOADING SCREEN -->
   <div id="loading-screen">
-    <div class="dots"><div class="dot"></div><div class="dot"></div><div class="dot"></div><div class="dot"></div><div class="dot"></div></div>
-    <div class="loading-title">Writing your cover letter</div>
-    <div class="loading-sub" id="loading-sub">Matching your story to the role · Weaving in keywords · Keeping it human</div>
+    <canvas id="grid-canvas"></canvas>
+    <div class="loading-content">
+      <div class="dots"><div class="dot"></div><div class="dot"></div><div class="dot"></div><div class="dot"></div><div class="dot"></div></div>
+      <div class="loading-title">Writing your cover letter</div>
+      <div class="loading-sub" id="loading-sub">Matching your story to the role · Weaving in keywords · Keeping it human</div>
+    </div>
   </div>
 
   <!-- RESULT SCREEN -->
@@ -385,7 +390,57 @@
     document.getElementById('input-screen').style.display = s === 'input' ? 'block' : 'none';
     document.getElementById('loading-screen').style.display = s === 'loading' ? 'flex' : 'none';
     document.getElementById('result-screen').style.display = s === 'result' ? 'block' : 'none';
+    if (s === 'loading') { startGrid(); } else { stopGrid(); }
   }
+
+  let _gridAnimId = null, _gridOffset = 0;
+  function startGrid() {
+    const canvas = document.getElementById('grid-canvas');
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    function resize() { canvas.width = window.innerWidth; canvas.height = window.innerHeight; }
+    resize();
+    window.addEventListener('resize', resize);
+    const ACCENT = '0, 229, 160';
+    const N_H = 22, N_V = 26;
+    function frame() {
+      const W = canvas.width, H = canvas.height;
+      const vx = W / 2, vy = H * 0.44, floorH = H - vy;
+      ctx.fillStyle = '#08080f'; ctx.fillRect(0, 0, W, H);
+      const hGlow = ctx.createRadialGradient(vx, vy, 0, vx, vy, W * 0.55);
+      hGlow.addColorStop(0, 'rgba(0,229,160,0.10)'); hGlow.addColorStop(0.5, 'rgba(0,229,160,0.03)'); hGlow.addColorStop(1, 'rgba(0,229,160,0)');
+      ctx.fillStyle = hGlow; ctx.fillRect(0, 0, W, H);
+      _gridOffset = (_gridOffset + 0.06) % N_H;
+      for (let i = 0; i <= N_V; i++) {
+        const xB = (i / N_V) * W, distC = Math.abs(i / N_V - 0.5) * 2;
+        ctx.globalAlpha = (1 - distC * 0.4) * 0.38; ctx.strokeStyle = `rgb(${ACCENT})`; ctx.lineWidth = 0.7;
+        ctx.beginPath(); ctx.moveTo(vx, vy); ctx.lineTo(xB, H); ctx.stroke();
+      }
+      for (let i = 0; i < N_H; i++) {
+        const slot = (i + _gridOffset) % N_H, t = slot / N_H;
+        const sy = vy + floorH * t * t;
+        if (sy > H + 2 || sy < vy) continue;
+        const alpha = t * 0.7;
+        ctx.globalAlpha = alpha; ctx.strokeStyle = `rgb(${ACCENT})`; ctx.lineWidth = t * 1.4 + 0.3;
+        ctx.beginPath(); ctx.moveTo(0, sy); ctx.lineTo(W, sy); ctx.stroke();
+        const dotR = t * 2.2 + 0.4; ctx.fillStyle = `rgb(${ACCENT})`;
+        for (let vi = 0; vi <= N_V; vi++) {
+          const xB = (vi / N_V) * W, yFrac = (sy - vy) / floorH;
+          const ix = vx + (xB - vx) * yFrac;
+          ctx.globalAlpha = alpha * 1.2; ctx.beginPath(); ctx.arc(ix, sy, dotR, 0, Math.PI * 2); ctx.fill();
+        }
+      }
+      const skyFade = ctx.createLinearGradient(0, 0, 0, vy + 30);
+      skyFade.addColorStop(0, 'rgba(8,8,15,1)'); skyFade.addColorStop(0.75, 'rgba(8,8,15,0.7)'); skyFade.addColorStop(1, 'rgba(8,8,15,0)');
+      ctx.globalAlpha = 1; ctx.fillStyle = skyFade; ctx.fillRect(0, 0, W, vy + 30);
+      const btmFade = ctx.createLinearGradient(0, H - 60, 0, H);
+      btmFade.addColorStop(0, 'rgba(8,8,15,0)'); btmFade.addColorStop(1, 'rgba(8,8,15,1)');
+      ctx.fillStyle = btmFade; ctx.fillRect(0, H - 60, W, 60);
+      _gridAnimId = requestAnimationFrame(frame);
+    }
+    frame();
+  }
+  function stopGrid() { if (_gridAnimId) { cancelAnimationFrame(_gridAnimId); _gridAnimId = null; } }
 
   function selectStyle(el, style) {
     document.querySelectorAll('.style-opt').forEach(o => { o.classList.remove('selected'); o.querySelector('.radio').classList.remove('on'); o.querySelector('.radio').innerHTML = ''; });
