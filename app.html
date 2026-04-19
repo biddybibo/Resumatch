@@ -90,6 +90,11 @@
     @keyframes pulse{0%,100%{opacity:0.2;transform:scale(0.8);}50%{opacity:1;transform:scale(1.1);}}
     .loading-title { font-family:'Syne',sans-serif; font-weight:800; font-size:22px; letter-spacing:1px; }
     .loading-sub { color:var(--muted); font-size:12px; }
+    .status-bar { width:320px; max-width:90vw; }
+    .status-step { font-size:12px; color:var(--accent); letter-spacing:0.5px; text-align:center; min-height:20px; transition:opacity 0.5s ease; }
+    .status-step.fade { opacity:0; }
+    .status-track { margin-top:10px; height:2px; background:var(--border); border-radius:2px; overflow:hidden; }
+    .status-fill { height:100%; background:var(--accent); border-radius:2px; width:0%; transition:width 0.6s ease; box-shadow:0 0 8px var(--accent); }
     #result-screen { display:none; }
     .result-grid { display:grid; grid-template-columns:160px 1fr 1fr; gap:16px; margin-bottom:24px; }
     .score-card { padding:24px 20px; display:flex; flex-direction:column; align-items:center; justify-content:center; }
@@ -219,7 +224,11 @@
   <div id="loading-screen">
     <div class="dots"><div class="dot"></div><div class="dot"></div><div class="dot"></div><div class="dot"></div><div class="dot"></div></div>
     <div class="loading-title">Analyzing your resume</div>
-    <div class="loading-sub" id="loading-sub">Matching keywords · Scoring relevance · Rewriting for impact</div>
+    <div class="status-bar">
+      <div class="status-step" id="status-step">Parsing resume structure...</div>
+      <div class="status-track"><div class="status-fill" id="status-fill"></div></div>
+    </div>
+    <div class="loading-sub" id="loading-sub"></div>
   </div>
   <div id="result-screen">
     <div class="result-grid fade-in">
@@ -455,7 +464,8 @@
     // Check free limit before sending
     if(profile && profile.subscription_status!=='active' && profile.tailor_count>=3){showPaywall();return;}
     setScreen('loading');
-    document.getElementById('loading-sub').textContent='Matching keywords · Scoring relevance · Rewriting for impact';
+    document.getElementById('loading-sub').textContent='';
+    startStatusCycle();
     try{
       const res=await fetch('/api/tailor',{method:'POST',headers:{'Content-Type':'application/json','Authorization':`Bearer ${session.access_token}`},body:JSON.stringify({resume,jobDescription:job})});
       if(res.status===403){const d=await res.json();if(d.error==='FREE_LIMIT_REACHED'){setScreen('input');showPaywall();return;}}
@@ -473,8 +483,8 @@
           if(!line.startsWith('data: '))continue;
           const msg=JSON.parse(line.slice(6));
           if(msg.error)throw new Error(msg.error);
-          if(msg.retrying)document.getElementById('loading-sub').textContent=`High demand — retrying (${msg.attempt}/${msg.maxRetries})... please wait`;
-          if(msg.partial&&msg.chars)document.getElementById('loading-sub').textContent=`Writing · ${msg.chars} characters generated...`;
+          if(msg.retrying){stopStatusCycle();document.getElementById('loading-sub').textContent=`High demand — retrying (${msg.attempt}/${msg.maxRetries})... please wait`;}
+          if(msg.partial&&msg.chars){stopStatusCycle();document.getElementById('loading-sub').textContent=`Writing · ${msg.chars} characters generated...`;}
           if(msg.done){
             // Update local profile count
             if(profile) profile.tailor_count++;
@@ -876,6 +886,55 @@
     document.getElementById('tab-tailored').style.display='block';document.getElementById('tab-changes').style.display='none';
     document.getElementById('copy-btn').style.display='inline-block';document.getElementById('download-btn').style.display='inline-block';hideError();setScreen('input');
     renderHistory();
+  }
+
+  // ── Status cycle animation ──────────────────────────────────────────────
+  const STATUS_STEPS = [
+    'Parsing resume structure...',
+    'Identifying your key skills...',
+    'Reading the job description...',
+    'Matching keywords to requirements...',
+    'Referencing successful resumes...',
+    'Scoring experience alignment...',
+    'Rewriting bullet points for impact...',
+    'Optimizing for ATS systems...',
+    'Crafting your professional summary...',
+    'Finalizing your tailored resume...',
+  ];
+
+  let _statusTimer = null;
+  let _statusIdx = 0;
+
+  function startStatusCycle() {
+    _statusIdx = 0;
+    stopStatusCycle();
+    const stepEl = document.getElementById('status-step');
+    const fillEl = document.getElementById('status-fill');
+    if (!stepEl || !fillEl) return;
+
+    function tick() {
+      // Fade out
+      stepEl.classList.add('fade');
+      setTimeout(() => {
+        stepEl.textContent = STATUS_STEPS[_statusIdx % STATUS_STEPS.length];
+        fillEl.style.width = `${Math.min(95, (_statusIdx / (STATUS_STEPS.length - 1)) * 100)}%`;
+        stepEl.classList.remove('fade');
+        _statusIdx++;
+        _statusTimer = setTimeout(tick, 2800);
+      }, 500);
+    }
+
+    // Set first step immediately (no fade-in delay)
+    stepEl.textContent = STATUS_STEPS[0];
+    fillEl.style.width = '0%';
+    _statusIdx = 1;
+    _statusTimer = setTimeout(tick, 2800);
+  }
+
+  function stopStatusCycle() {
+    if (_statusTimer) { clearTimeout(_statusTimer); _statusTimer = null; }
+    const fillEl = document.getElementById('status-fill');
+    if (fillEl) fillEl.style.width = '100%';
   }
 </script>
 </body>
