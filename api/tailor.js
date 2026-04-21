@@ -131,6 +131,7 @@ export default async function handler(req, res) {
     const streamParams = {
       model: 'claude-sonnet-4-6',
       max_tokens: 2800,
+      temperature: 0,
       messages: [{
         role: 'user',
         content: `You are an expert resume optimizer specializing in ATS optimization and professional resume writing standards.
