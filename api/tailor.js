@@ -88,24 +88,42 @@ async function searchReferenceResumes(jobDescription) {
 export default async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
-  // Verify authentication
+  // Determine auth mode: Bearer token (logged in) or X-Anon-Id (anonymous)
   const token = req.headers.authorization?.replace('Bearer ', '');
-  if (!token) return res.status(401).json({ error: 'Not authenticated' });
+  const anonId = req.headers['x-anon-id'];
 
-  const { data: { user }, error: authError } = await supabase.auth.getUser(token);
-  if (authError || !user) return res.status(401).json({ error: 'Invalid session' });
+  let user = null;
+  let profile = null;
+  let anonUseCount = 0;
 
-  // Check usage
-  const { data: profile } = await supabase
-    .from('profiles')
-    .select('subscription_status, tailor_count')
-    .eq('id', user.id)
-    .single();
+  if (token) {
+    const { data: { user: authUser }, error: authError } = await supabase.auth.getUser(token);
+    if (authError || !authUser) return res.status(401).json({ error: 'Invalid session' });
+    user = authUser;
 
-  if (!profile) return res.status(400).json({ error: 'Profile not found' });
+    const { data: p } = await supabase
+      .from('profiles')
+      .select('subscription_status, tailor_count')
+      .eq('id', user.id)
+      .single();
 
-  if (profile.subscription_status !== 'active' && profile.tailor_count >= 3) {
-    return res.status(403).json({ error: 'FREE_LIMIT_REACHED' });
+    if (!p) return res.status(400).json({ error: 'Profile not found' });
+    profile = p;
+
+    if (profile.subscription_status !== 'active' && profile.tailor_count >= 3) {
+      return res.status(403).json({ error: 'FREE_LIMIT_REACHED' });
+    }
+  } else if (anonId && typeof anonId === 'string' && anonId.length <= 100) {
+    const { data: anonRecord } = await supabase
+      .from('anonymous_usage')
+      .select('use_count')
+      .eq('anon_id', anonId)
+      .single();
+
+    anonUseCount = anonRecord?.use_count || 0;
+    if (anonUseCount >= 3) return res.status(403).json({ error: 'FREE_LIMIT_REACHED' });
+  } else {
+    return res.status(401).json({ error: 'Not authenticated' });
   }
 
   const { resume, jobDescription } = req.body;
@@ -252,10 +270,16 @@ PART 2 — JSON only (no resume text here):
       .join('\n');
 
     // Increment usage count
-    await supabase
-      .from('profiles')
-      .update({ tailor_count: profile.tailor_count + 1 })
-      .eq('id', user.id);
+    if (user) {
+      await supabase
+        .from('profiles')
+        .update({ tailor_count: profile.tailor_count + 1 })
+        .eq('id', user.id);
+    } else {
+      await supabase
+        .from('anonymous_usage')
+        .upsert({ anon_id: anonId, use_count: anonUseCount + 1, last_used: new Date().toISOString() });
+    }
 
     res.write(`data: ${JSON.stringify({ done: true, result })}\n\n`);
     res.end();

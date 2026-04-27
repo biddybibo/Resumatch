@@ -161,10 +161,12 @@
   <div class="nav-right">
     <span class="nav-usage" id="nav-usage"></span>
     <button class="nav-upgrade" id="nav-upgrade" onclick="upgrade()" style="display:none;">UPGRADE</button>
-    <button class="nav-logout" onclick="logout()">LOG OUT</button>
+    <button class="nav-upgrade" id="nav-signup" onclick="showSignupModal()" style="display:none;">SIGN UP</button>
+    <button class="nav-logout" id="logout-btn" onclick="logout()">LOG OUT</button>
+    <a href="/login" class="nav-logout" id="login-btn" style="display:none;text-decoration:none;">LOG IN</a>
   </div>
 </nav>
-<!-- Paywall Modal -->
+<!-- Paywall Modal (logged-in free users) -->
 <div class="modal-overlay" id="paywall-modal">
   <div class="modal">
     <h2>Go <span>unlimited</span></h2>
@@ -173,6 +175,17 @@
     <div class="price-sub">per month · cancel anytime</div>
     <button class="modal-cta" onclick="upgrade()">UPGRADE TO PRO</button>
     <button class="modal-close" onclick="closePaywall()">maybe later</button>
+  </div>
+</div>
+<!-- Signup Modal (anonymous users who hit the free limit) -->
+<div class="modal-overlay" id="signup-modal">
+  <div class="modal">
+    <h2>You've used your <span>3 free</span> tailors</h2>
+    <p>Create a free account to unlock unlimited resume tailoring, cover letter generation, and more.</p>
+    <div class="price">$3.99</div>
+    <div class="price-sub">per month · cancel anytime</div>
+    <button class="modal-cta" onclick="window.location.href='/login'">CREATE ACCOUNT</button>
+    <button class="modal-close" onclick="closeSignupModal()">maybe later</button>
   </div>
 </div>
 <div class="container">
@@ -280,47 +293,69 @@
   let session = null;
   let profile = null;
 
-  // Auth check on page load
+  // Auth check on page load — anonymous users are allowed; no redirect
   (async () => {
     const { data } = await sb.auth.getSession();
     session = data.session;
-    if (!session) { window.location.href = '/login'; return; }
-    // Load profile
-    const { data: p } = await sb.from('profiles').select('*').eq('id', session.user.id).single();
-    profile = p;
+    if (session) {
+      const { data: p } = await sb.from('profiles').select('*').eq('id', session.user.id).single();
+      profile = p;
+      if (new URLSearchParams(window.location.search).get('upgraded') === 'true') {
+        window.history.replaceState({}, '', '/app');
+        setTimeout(async () => {
+          const { data: p2 } = await sb.from('profiles').select('*').eq('id', session.user.id).single();
+          profile = p2;
+          updateNavUsage();
+        }, 2000);
+      }
+    }
     updateNavUsage();
     renderHistory();
-    // Check for upgrade success
-    if (new URLSearchParams(window.location.search).get('upgraded') === 'true') {
-      window.history.replaceState({}, '', '/app');
-      // Refresh profile after short delay for webhook to process
-      setTimeout(async () => {
-        const { data: p2 } = await sb.from('profiles').select('*').eq('id', session.user.id).single();
-        profile = p2;
-        updateNavUsage();
-      }, 2000);
-    }
   })();
 
   function updateNavUsage() {
-    if (!profile) return;
     const usage = document.getElementById('nav-usage');
     const upgradeBtn = document.getElementById('nav-upgrade');
-    if (profile.subscription_status === 'active') {
-      usage.textContent = 'PRO · unlimited';
-      upgradeBtn.style.display = 'none';
+    const signupBtn = document.getElementById('nav-signup');
+    const logoutBtn = document.getElementById('logout-btn');
+    const loginBtn = document.getElementById('login-btn');
+
+    if (session && profile) {
+      logoutBtn.style.display = 'inline-block';
+      loginBtn.style.display = 'none';
+      signupBtn.style.display = 'none';
+      if (profile.subscription_status === 'active') {
+        usage.textContent = 'PRO · unlimited';
+        upgradeBtn.style.display = 'none';
+      } else {
+        const remaining = Math.max(0, 3 - profile.tailor_count);
+        usage.textContent = `${remaining}/3 free`;
+        upgradeBtn.style.display = remaining === 0 ? 'inline-block' : 'none';
+      }
     } else {
-      const remaining = Math.max(0, 3 - profile.tailor_count);
+      logoutBtn.style.display = 'none';
+      loginBtn.style.display = 'inline-block';
+      upgradeBtn.style.display = 'none';
+      const anonUses = parseInt(localStorage.getItem('rm_anon_uses') || '0');
+      const remaining = Math.max(0, 3 - anonUses);
       usage.textContent = `${remaining}/3 free`;
-      upgradeBtn.style.display = remaining === 0 ? 'inline-block' : 'none';
+      signupBtn.style.display = remaining === 0 ? 'inline-block' : 'none';
     }
   }
 
   function showPaywall() { document.getElementById('paywall-modal').classList.add('show'); }
   function closePaywall() { document.getElementById('paywall-modal').classList.remove('show'); }
+  function showSignupModal() { document.getElementById('signup-modal').classList.add('show'); }
+  function closeSignupModal() { document.getElementById('signup-modal').classList.remove('show'); }
+
+  function getAnonId() {
+    let id = localStorage.getItem('rm_anon_id');
+    if (!id) { id = crypto.randomUUID(); localStorage.setItem('rm_anon_id', id); }
+    return id;
+  }
 
   async function upgrade() {
-    if (!session) return;
+    if (!session) { showSignupModal(); return; }
     const res = await fetch('/api/stripe-checkout', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session.access_token}` }
@@ -470,15 +505,35 @@
     const job=document.getElementById('job-input').value.trim();
     hideError();
     if(!resume||!job){showError('Please fill in both fields before analyzing.');return;}
-    if(!session){window.location.href='/login';return;}
-    // Check free limit before sending
-    if(profile && profile.subscription_status!=='active' && profile.tailor_count>=3){showPaywall();return;}
+
+    if(session){
+      if(profile && profile.subscription_status!=='active' && profile.tailor_count>=3){showPaywall();return;}
+    } else {
+      const anonUses=parseInt(localStorage.getItem('rm_anon_uses')||'0');
+      if(anonUses>=3){showSignupModal();return;}
+    }
+
     setScreen('loading');
     document.getElementById('loading-sub').textContent='';
     startStatusCycle();
+
+    const headers={'Content-Type':'application/json'};
+    if(session){
+      headers['Authorization']=`Bearer ${session.access_token}`;
+    } else {
+      headers['X-Anon-Id']=getAnonId();
+    }
+
     try{
-      const res=await fetch('/api/tailor',{method:'POST',headers:{'Content-Type':'application/json','Authorization':`Bearer ${session.access_token}`},body:JSON.stringify({resume,jobDescription:job})});
-      if(res.status===403){const d=await res.json();if(d.error==='FREE_LIMIT_REACHED'){setScreen('input');showPaywall();return;}}
+      const res=await fetch('/api/tailor',{method:'POST',headers,body:JSON.stringify({resume,jobDescription:job})});
+      if(res.status===403){
+        const d=await res.json();
+        if(d.error==='FREE_LIMIT_REACHED'){
+          setScreen('input');
+          if(session) showPaywall(); else showSignupModal();
+          return;
+        }
+      }
       if(!res.ok){throw new Error('Something went wrong. Please try again.');}
       const reader=res.body.getReader();
       const decoder=new TextDecoder();
@@ -496,8 +551,12 @@
           if(msg.retrying){stopStatusCycle();document.getElementById('loading-sub').textContent=`High demand — retrying (${msg.attempt}/${msg.maxRetries})... please wait`;}
           if(msg.partial&&msg.chars){stopStatusCycle();document.getElementById('loading-sub').textContent=`Writing · ${msg.chars} characters generated...`;}
           if(msg.done){
-            // Update local profile count
-            if(profile) profile.tailor_count++;
+            if(session){
+              if(profile) profile.tailor_count++;
+            } else {
+              const curr=parseInt(localStorage.getItem('rm_anon_uses')||'0');
+              localStorage.setItem('rm_anon_uses',String(curr+1));
+            }
             updateNavUsage();
             saveToHistory(msg.result, job);
             renderResult(msg.result);
