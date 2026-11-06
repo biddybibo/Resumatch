@@ -44,6 +44,20 @@
   const writeLocal = (list) => { try { localStorage.setItem(LOCAL_KEY, JSON.stringify(list)); } catch { /* storage unavailable */ } };
   const uuid = () => (crypto.randomUUID ? crypto.randomUUID() : String(Date.now()) + Math.random().toString(16).slice(2));
 
+  // The open card for the same job, so a tailored resume and its cover letter
+  // land on one card instead of two. Matches on job link, then job description,
+  // then company + role.
+  function findMatch(apps, { jobUrl = '', jobDescription = '', company = '', role = '' } = {}) {
+    const open = (apps || []).filter(a => a.status !== 'closed');
+    const url = (u) => String(u || '').trim().replace(/[?#].*$/, '').replace(/\/+$/, '').toLowerCase();
+    const text = (t) => String(t || '').replace(/\s+/g, ' ').trim().toLowerCase().slice(0, 2000);
+    const name = (t) => String(t || '').replace(/\s+/g, ' ').trim().toLowerCase();
+    if (url(jobUrl)) { const m = open.find(a => url(a.jobUrl) === url(jobUrl)); if (m) return m; }
+    if (text(jobDescription).length > 40) { const m = open.find(a => text(a.jobDescription) === text(jobDescription)); if (m) return m; }
+    if (name(company) && name(role)) { const m = open.find(a => name(a.company) === name(company) && name(a.role) === name(role)); if (m) return m; }
+    return null;
+  }
+
   function createStore(sb, session) {
     let mode = session ? 'cloud' : 'local';
     let fallbackReason = '';
@@ -160,5 +174,6 @@
     return data;
   }
 
-  window.Pipeline = { createStore, STATUSES, STATUS_LABELS, apiHeaders, callApi };
+  window.Pipeline = {
+    findMatch, createStore, STATUSES, STATUS_LABELS, apiHeaders, callApi };
 })();
