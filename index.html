@@ -2,7 +2,8 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8"/>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover"/>
+  <meta name="theme-color" content="#08080f"/>
   <title>RESUMATCH — AI Resume Tailor</title>
   <link rel="icon" type="image/jpeg" href="/logo.jpg">
   <link href="https://fonts.googleapis.com/css2?family=DM+Mono:ital,wght@0,300;0,400;0,500;1,300&family=Syne:wght@700;800;900&display=swap" rel="stylesheet"/>
@@ -20,7 +21,8 @@
       --accent-glow: rgba(0,229,160,0.25);
     }
 
-    html { scroll-behavior: smooth; }
+    html { scroll-behavior: smooth; overflow-x: clip; }
+    .bottom-cta { overflow: hidden; }
 
     body {
       background: var(--bg);
@@ -70,11 +72,12 @@
     /* NAV */
     nav {
       position: fixed; top: 0; left: 0; right: 0; z-index: 500;
-      height: 60px; padding: 0 40px;
+      /* Extends under the iPhone status bar (viewport-fit=cover) so content never peeks above it. */
+      height: calc(60px + env(safe-area-inset-top)); padding: env(safe-area-inset-top) max(40px, env(safe-area-inset-right)) 0 max(40px, env(safe-area-inset-left));
       display: flex; align-items: center; gap: 14px;
       border-bottom: 1px solid rgba(255,255,255,0.04);
-      background: rgba(8,8,15,0.7);
-      backdrop-filter: blur(20px);
+      background: linear-gradient(to bottom, #08080f env(safe-area-inset-top), rgba(8,8,15,0.82) env(safe-area-inset-top));
+      backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
       animation: slideDown 0.8s ease both;
     }
     @keyframes slideDown { from { opacity:0; transform:translateY(-20px); } to { opacity:1; transform:translateY(0); } }
@@ -89,6 +92,7 @@
       color: var(--accent); font-family: 'DM Mono', monospace;
       font-size: 11px; letter-spacing: 1.5px;
       padding: 8px 20px; border-radius: 6px; cursor: none;
+      white-space: nowrap; flex-shrink: 0;
       transition: all 0.25s;
       text-decoration: none;
     }
@@ -100,7 +104,7 @@
       display: flex; flex-direction: column;
       align-items: center; justify-content: center;
       text-align: center;
-      padding: 100px 24px 60px;
+      padding: calc(100px + env(safe-area-inset-top)) 24px 60px;
       position: relative;
     }
 
@@ -150,7 +154,7 @@
       font-family: 'Syne', sans-serif; font-weight: 900;
       font-size: 16px; letter-spacing: 2px;
       padding: 20px 52px; border-radius: 12px;
-      text-decoration: none; cursor: none;
+      text-decoration: none; cursor: none; white-space: nowrap;
       position: relative; overflow: hidden;
       box-shadow: 0 0 0 0 var(--accent-glow);
       transition: transform 0.2s, box-shadow 0.2s;
@@ -173,7 +177,9 @@
     }
     .cta-btn:hover .cta-arrow { transform: translateX(4px); }
 
-    .cta-sub { margin-top: 14px; color: var(--muted); font-size: 11px; letter-spacing: 0.5px; }
+    .cta-sub { margin-top: 14px; color: var(--muted); font-size: 11px; letter-spacing: 0.5px; display: flex; flex-wrap: wrap; justify-content: center; gap: 4px 0; }
+    .cta-sub span { white-space: nowrap; }
+    .cta-sub span + span::before { content: "·"; margin: 0 10px; }
 
     /* SCROLL HINT */
     .scroll-hint {
@@ -361,18 +367,27 @@
     @media(max-width:700px){
       body { cursor:auto; }
       .cursor, .cursor-ring { display:none; }
-      nav { padding:0 16px; height:50px; }
-      .nav-cta { font-size:10px; padding:6px 14px; cursor:pointer; }
-      .hero { padding:80px 20px 40px; min-height:auto; }
+      nav { padding:env(safe-area-inset-top) 16px 0; height:calc(56px + env(safe-area-inset-top)); gap:10px; }
+      .nav-logo { font-size:14px; letter-spacing:2px; }
+      .nav-cta { font-size:11px; padding:8px 14px; cursor:pointer; }
+      .hero { padding:calc(84px + env(safe-area-inset-top)) 20px 48px; min-height:auto; }
       .hero-glow { width:300px; height:300px; }
       .hero-eyebrow { font-size:9px; padding:5px 10px; margin-bottom:24px; }
       .hero-title { font-size:clamp(36px,10vw,64px); letter-spacing:-2px; margin-bottom:20px; }
       .hero-title .line3 { font-size:clamp(24px,6vw,40px); }
       .hero-sub { font-size:12px; margin-bottom:36px; }
-      .cta-btn { padding:16px 32px; font-size:14px; cursor:pointer; }
-      .cta-sub { font-size:10px; }
-      .scroll-hint { margin-top:32px; }
-      .features { padding:60px 20px 80px; }
+      .cta-btn { width:100%; max-width:360px; justify-content:center; padding:18px 20px; font-size:15px; letter-spacing:1px; cursor:pointer; }
+      .cta-sub { font-size:11px; gap:6px 16px; }
+      .cta-sub span + span::before { content:none; }
+      .scroll-hint { display:none; }
+      .features { padding:24px 20px 64px; }
+      /* Compact feature cards: icon beside the title instead of stacked. */
+      .features-grid { gap:12px; }
+      .feature-card { display:grid; grid-template-columns:36px 1fr; column-gap:14px; align-items:start; padding:18px 18px 20px; border-radius:14px; }
+      .feature-card .feature-icon { width:36px; height:36px; margin:0; grid-row:1 / span 2; }
+      .feature-card .feature-icon svg { width:17px; height:17px; }
+      .feature-card .feature-name { margin:6px 0 6px; }
+      .feature-card .feature-desc { grid-column:2; }
       .features-grid { grid-template-columns:1fr; }
       .section-title { font-size:clamp(24px,6vw,36px); margin-bottom:40px; }
       .how { padding:60px 20px; }
@@ -381,8 +396,9 @@
       .stats { padding:60px 20px; }
       .stats-grid { grid-template-columns:1fr; gap:28px; }
       .stat-num { font-size:44px; }
-      .bottom-cta { padding:80px 20px; }
-      footer { padding:20px 16px; flex-wrap:wrap; gap:8px; }
+      .bottom-cta { padding:64px 20px calc(64px + env(safe-area-inset-bottom)); }
+      .bottom-cta p { margin-bottom:28px; }
+      footer { padding:20px 16px calc(20px + env(safe-area-inset-bottom)); flex-wrap:wrap; gap:8px; }
       footer span[style*="margin-left:auto"] { margin-left:0!important; width:100%; margin-top:4px; }
     }
 
@@ -426,7 +442,7 @@
       TAILOR MY RESUME
       <span class="cta-arrow">→</span>
     </a>
-    <div class="cta-sub">Free to start &nbsp;·&nbsp; 3 free tailors &nbsp;·&nbsp; Results in seconds</div>
+    <div class="cta-sub"><span>Free to start</span><span>3 free tailors</span><span>Results in seconds</span></div>
     
     <div class="scroll-hint">
       <span>SCROLL</span>
