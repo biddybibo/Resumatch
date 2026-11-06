@@ -2,10 +2,10 @@
   "cleanUrls": true,
   "functions": {
     "api/tailor.js": {
-      "maxDuration": 60
+      "maxDuration": 300
     },
     "api/coverletter.js": {
-      "maxDuration": 60
+      "maxDuration": 300
     },
     "api/parse-pdf.js": {
       "maxDuration": 30
@@ -20,7 +20,7 @@
       "maxDuration": 15
     },
     "api/assist.js": {
-      "maxDuration": 60
+      "maxDuration": 300
     },
     "api/fetch-job.js": {
       "maxDuration": 20
@@ -33,9 +33,18 @@
     {
       "source": "/api/(.*)",
       "headers": [
-        { "key": "Access-Control-Allow-Origin", "value": "*" },
-        { "key": "Access-Control-Allow-Methods", "value": "POST, OPTIONS" },
-        { "key": "Access-Control-Allow-Headers", "value": "Content-Type, Authorization" }
+        {
+          "key": "Access-Control-Allow-Origin",
+          "value": "*"
+        },
+        {
+          "key": "Access-Control-Allow-Methods",
+          "value": "POST, OPTIONS"
+        },
+        {
+          "key": "Access-Control-Allow-Headers",
+          "value": "Content-Type, Authorization"
+        }
       ]
     }
   ]
