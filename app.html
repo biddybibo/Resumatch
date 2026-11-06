@@ -243,17 +243,17 @@
 <nav>
   <img src="/logo.jpg" alt="Resumatch" style="width:32px;height:32px;border-radius:6px;object-fit:cover;">
   <a href="/" class="nav-logo" style="text-decoration:none;color:inherit;">RESUMATCH</a>
-  <div class="nav-links" style="margin-left:16px;display:flex;gap:4px;">
-    <button class="nav-link active" style="font-size:13px;padding:6px 14px;border-radius:6px;border:1px solid rgba(var(--accent-rgb),0.3);color:var(--accent);background:rgba(var(--accent-rgb),0.06);font-family:var(--font-ui);letter-spacing:1px;cursor:pointer;">Resume tailor</button>
-    <a href="/cover" class="nav-link" style="font-size:13px;padding:6px 14px;border-radius:6px;border:1px solid transparent;color:var(--muted);text-decoration:none;transition:all 0.2s;letter-spacing:1px;">Cover letter</a>
-    <a href="/pipeline" class="nav-link" style="font-size:13px;padding:6px 14px;border-radius:6px;border:1px solid transparent;color:var(--muted);text-decoration:none;transition:all 0.2s;letter-spacing:1px;">Pipeline</a>
+  <div class="nav-links">
+    <a href="/app" class="nav-link active" aria-current="page"><span class="nav-num">1</span>Tailor</a>
+    <a href="/cover" class="nav-link"><span class="nav-num">2</span>Cover letter</a>
+    <a href="/pipeline" class="nav-link"><span class="nav-num">3</span>Pipeline</a>
   </div>
   <div class="nav-right">
     <span class="nav-usage" id="nav-usage"></span>
-    <button class="nav-upgrade" id="nav-upgrade" onclick="upgrade()" style="display:none;">UPGRADE</button>
-    <button class="nav-upgrade" id="nav-signup" onclick="showSignupModal()" style="display:none;">SIGN UP</button>
-    <button class="nav-logout" id="logout-btn" onclick="logout()">LOG OUT</button>
-    <a href="/login" class="nav-logout" id="login-btn" style="display:none;text-decoration:none;">LOG IN</a>
+    <button class="nav-upgrade" id="nav-upgrade" onclick="upgrade()" style="display:none;">Upgrade</button>
+    <button class="nav-upgrade" id="nav-signup" onclick="showSignupModal()" style="display:none;">Sign up</button>
+    <button class="nav-logout" id="logout-btn" onclick="logout()">Log out</button>
+    <a href="/login" class="nav-logout" id="login-btn" style="display:none;text-decoration:none;">Log in</a>
   </div>
 </nav>
 <!-- Paywall Modal (logged-in free users) -->
@@ -263,7 +263,7 @@
     <p>You've used your 3 free resume tailors. Upgrade to Pro for unlimited tailoring with AI-powered resume search.</p>
     <div class="price">$3.99</div>
     <div class="price-sub">per month · cancel anytime</div>
-    <button class="modal-cta" onclick="upgrade()">UPGRADE TO PRO</button>
+    <button class="modal-cta" onclick="upgrade()">Upgrade to Pro</button>
     <button class="modal-close" onclick="closePaywall()">maybe later</button>
   </div>
 </div>
@@ -274,7 +274,7 @@
     <p>Create a free account to unlock unlimited resume tailoring, cover letter generation, and more.</p>
     <div class="price">$3.99</div>
     <div class="price-sub">per month · cancel anytime</div>
-    <button class="modal-cta" onclick="window.location.href='/login'">CREATE ACCOUNT</button>
+    <button class="modal-cta" onclick="window.location.href='/login'">Create account</button>
     <button class="modal-close" onclick="closeSignupModal()">maybe later</button>
   </div>
 </div>
@@ -292,7 +292,7 @@
         <div class="char-count"><span id="resume-count">0</span> chars</div>
         <button class="file-upload-btn" onclick="document.getElementById('resume-file').click()">
           <svg style="width:14px;height:14px;vertical-align:middle;margin-right:6px;stroke:currentColor;fill:none;stroke-width:2.5;stroke-linecap:round;stroke-linejoin:round;" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
-          UPLOAD PDF/DOC
+          Upload PDF or DOC
         </button>
         <input type="file" id="resume-file" accept=".pdf,.doc,.docx,.txt" style="display:none" onchange="handleFileUpload(event, 'resume')">
         <div class="file-name-display" id="resume-file-name"></div>
@@ -306,14 +306,14 @@
         <div class="input-label">JOB DESCRIPTION</div>
         <div class="url-row">
           <input id="job-url" class="url-input" type="url" placeholder="Paste a job link (Greenhouse, Lever, Ashby, LinkedIn...)" onkeydown="if(event.key==='Enter'){event.preventDefault();importJob();}">
-          <button class="file-upload-btn url-btn" id="job-url-btn" onclick="importJob()">IMPORT</button>
+          <button class="file-upload-btn url-btn" id="job-url-btn" onclick="importJob()">Import</button>
         </div>
         <div class="url-status" id="job-url-status"></div>
         <textarea id="job-input" placeholder="Paste the job posting here...&#10;&#10;• Responsibilities&#10;• Required qualifications&#10;• Preferred skills&#10;• About the company" oninput="updateCount('job-input','job-count')"></textarea>
         <div class="char-count"><span id="job-count">0</span> chars</div>
         <button class="file-upload-btn" onclick="document.getElementById('job-file').click()">
           <svg style="width:14px;height:14px;vertical-align:middle;margin-right:6px;stroke:currentColor;fill:none;stroke-width:2.5;stroke-linecap:round;stroke-linejoin:round;" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
-          UPLOAD PDF/DOC
+          Upload PDF or DOC
         </button>
         <input type="file" id="job-file" accept=".pdf,.doc,.docx,.txt" style="display:none" onchange="handleFileUpload(event, 'job')">
         <div class="file-name-display" id="job-file-name"></div>
@@ -324,7 +324,7 @@
         </div>
       </div>
     </div>
-    <button class="btn-primary fade-in" onclick="analyze()">ANALYZE & TAILOR →</button>
+    <button class="btn-primary fade-in" onclick="analyze()">Tailor my resume →</button>
 
     <div class="divider"></div>
     <div class="hist-section-label">PREVIOUS TAILORED RESUMES</div>
@@ -372,13 +372,13 @@
     </div>
     <div class="card tabs-wrapper fade-in">
       <div class="tab-bar">
-        <button class="tab-btn active" onclick="switchTab('tailored',this)">TAILORED RESUME</button>
-        <button class="tab-btn" onclick="switchTab('changes',this)" id="changes-tab-btn">TRACKED CHANGES</button>
-        <button class="tab-btn" onclick="switchTab('gaps',this)" id="gaps-tab-btn">GAP ANALYSIS</button>
-        <button class="tab-btn" onclick="switchTab('truth',this)" id="truth-tab-btn">TRUTH CHECK</button>
+        <button class="tab-btn active" onclick="switchTab('tailored',this)">Tailored resume</button>
+        <button class="tab-btn" onclick="switchTab('changes',this)" id="changes-tab-btn">Changes</button>
+        <button class="tab-btn" onclick="switchTab('gaps',this)" id="gaps-tab-btn">Gaps</button>
+        <button class="tab-btn" onclick="switchTab('truth',this)" id="truth-tab-btn">Truth check</button>
         <div class="tab-spacer"></div>
         <button class="copy-btn" id="download-btn" onclick="downloadPDF()">↓ PDF</button>
-        <button class="copy-btn" id="copy-btn" onclick="copyResume()">COPY</button>
+        <button class="copy-btn" id="copy-btn" onclick="copyResume()">Copy</button>
       </div>
       <div class="tab-content">
         <div id="tab-tailored"><pre id="tailored-text"></pre></div>
@@ -389,9 +389,9 @@
     </div>
     </div>
     <div class="result-footer fade-in" style="gap:12px;">
-      <button class="btn-ghost" onclick="reset()">← START OVER</button>
-      <button class="btn-save" id="save-pipeline-btn" onclick="saveToPipeline()">+ SAVE TO PIPELINE</button>
-      <a href="/cover" id="cl-link" class="btn-ghost" style="border-color:rgba(var(--accent-rgb),0.2);color:var(--accent);text-decoration:none;display:inline-flex;align-items:center;">WRITE COVER LETTER →</a>
+      <button class="btn-ghost" onclick="reset()">← Start over</button>
+      <button class="btn-save" id="save-pipeline-btn" onclick="saveToPipeline()">+ Save to pipeline</button>
+      <a href="/cover" id="cl-link" class="btn-ghost" style="border-color:rgba(var(--accent-rgb),0.2);color:var(--accent);text-decoration:none;display:inline-flex;align-items:center;">Write cover letter →</a>
     </div>
   </div>
 </div>
@@ -861,7 +861,7 @@
     if (!r) return;
     const diff = ResumeDiff.diffResumes(lastRun.resume || '', r.tailoredResume || '', r.changes, lastRun.truth?.flags);
     const nChanged = diff.stats.modified + diff.stats.added + diff.stats.removed;
-    document.getElementById('changes-tab-btn').textContent = `TRACKED CHANGES (${nChanged})`;
+    document.getElementById('changes-tab-btn').textContent = `Changes (${nChanged})`;
     document.getElementById('tab-changes').innerHTML = ResumeDiff.renderDiffHTML(diff);
   }
 
@@ -872,7 +872,7 @@
     const btn = document.getElementById('job-url-btn');
     const url = input.value.trim();
     if (!url) { input.focus(); return; }
-    btn.disabled = true; btn.textContent = 'IMPORTING…';
+    btn.disabled = true; btn.textContent = 'Importing…';
     status.className = 'url-status busy'; status.textContent = 'Reading the job posting…';
     try {
       const job = await Pipeline.callApi('/api/fetch-job', { url }, session);
@@ -886,7 +886,7 @@
     } catch (e) {
       status.className = 'url-status err'; status.textContent = e.message;
     } finally {
-      btn.disabled = false; btn.textContent = 'IMPORT';
+      btn.disabled = false; btn.textContent = 'Import';
     }
   }
 
@@ -915,26 +915,26 @@
     if (!run) return;
     pill.style.display = 'inline-block';
     if (run.truthState === 'running') {
-      pill.className = 'truth-pill'; pill.textContent = 'TRUTH CHECK · RUNNING…';
-      btn.textContent = 'TRUTH CHECK';
+      pill.className = 'truth-pill'; pill.textContent = 'Truth check · running…';
+      btn.textContent = 'Truth check';
       tab.innerHTML = '<div class="truth-clean">Checking every claim in the tailored resume against your original…</div>';
       return;
     }
     if (!run.truth && run.truthState !== 'error') {
-      pill.className = 'truth-pill'; pill.textContent = 'TRUTH CHECK · RUN';
-      btn.textContent = 'TRUTH CHECK';
-      tab.innerHTML = `<div class="truth-clean">No truth check saved for this result.<br><br><button class="btn-ghost" onclick="runTruthCheck(lastRun)">RUN TRUTH CHECK</button></div>`;
+      pill.className = 'truth-pill'; pill.textContent = 'Truth check · run';
+      btn.textContent = 'Truth check';
+      tab.innerHTML = `<div class="truth-clean">No truth check saved for this result.<br><br><button class="btn-ghost" onclick="runTruthCheck(lastRun)">Run truth check</button></div>`;
       return;
     }
     if (run.truthState === 'error') {
-      pill.className = 'truth-pill'; pill.textContent = 'TRUTH CHECK · RETRY';
-      tab.innerHTML = `<div class="truth-clean">The truth check couldn't run: ${esc(run.truthError)}<br><br><button class="btn-ghost" onclick="runTruthCheck(lastRun)">RUN AGAIN</button></div>`;
+      pill.className = 'truth-pill'; pill.textContent = 'Truth check · retry';
+      tab.innerHTML = `<div class="truth-clean">The truth check couldn't run: ${esc(run.truthError)}<br><br><button class="btn-ghost" onclick="runTruthCheck(lastRun)">Run again</button></div>`;
       return;
     }
     const flags = run.truth?.flags || [];
-    btn.textContent = `TRUTH CHECK${flags.length ? ` (${flags.length})` : ''}`;
+    btn.textContent = `Truth check${flags.length ? ` (${flags.length})` : ''}`;
     pill.className = 'truth-pill ' + (flags.length ? 'warn' : 'ok');
-    pill.textContent = flags.length ? `⚠ ${flags.length} CLAIM${flags.length > 1 ? 'S' : ''} TO VERIFY` : '✓ ALL CLAIMS BACKED';
+    pill.textContent = flags.length ? `⚠ ${flags.length} claim${flags.length > 1 ? 's' : ''} to verify` : '✓ All claims backed';
     const checked = run.truth?.checked;
     if (!flags.length) {
       tab.innerHTML = `<div class="truth-clean"><b>Every claim checks out.</b>${checked ? `${checked} factual claims` : 'Every factual claim'} in the tailored resume is backed by your original, and no new numbers were introduced.</div>`;
@@ -946,7 +946,7 @@
         <div class="truth-claim">“${esc(f.claim)}”</div>
         <div class="truth-issue">${esc(f.issue)}</div>
         ${f.evidence ? `<div class="truth-ev">Original says: “${esc(f.evidence)}”</div>` : ''}
-        ${f.fix ? `<div class="truth-fix"><span>${esc(f.fix)}</span><button onclick="copyFix(${i}, this)">COPY</button></div>` : ''}
+        ${f.fix ? `<div class="truth-fix"><span>${esc(f.fix)}</span><button onclick="copyFix(${i}, this)">Copy</button></div>` : ''}
       </div>`).join('') +
       '<div style="font-size:12px;color:var(--c-555);margin-top:14px;line-height:1.6;">Two checks: an AI fact-checker compares every claim to your original resume, and an exact scan flags any number that never appears in your original.</div>';
   }
@@ -1011,7 +1011,7 @@
     }
     const honestGaps = a.requirements.filter(q => !q.supported).length;
     const hasLevels = a.requirements.some(q => q.level);
-    btn.textContent = `GAP ANALYSIS (${a.requirements.filter(q => hasLevels ? q.level !== 'strong' : !q.inTailored).length})`;
+    btn.textContent = `Gaps (${a.requirements.filter(q => hasLevels ? q.level !== 'strong' : !q.inTailored).length})`;
     const mark = (v) => `<span class="gap-mark ${v ? 'yes' : 'no'}">${v ? '✓' : '✗'}</span>`;
     const LEVEL = { strong: 'STRONG', partial: 'PARTIAL', none: 'NONE' };
     tab.innerHTML = `
@@ -1025,7 +1025,7 @@
         <div class="gap-detail">
           ${q.evidence ? `<div class="ev">“${esc(q.evidence)}”</div>` : ''}
           ${q.ungrounded ? `<div class="gap-honest" style="color:var(--warn)">The quoted evidence wasn't found in your resume, so this rating was lowered.</div>` : ''}
-          ${q.suggestion && !q.inTailored ? `<div class="gap-sugg"><span>${esc(q.suggestion)}</span><button onclick="copySuggestion(${i}, this)">COPY</button></div>` : ''}
+          ${q.suggestion && !q.inTailored ? `<div class="gap-sugg"><span>${esc(q.suggestion)}</span><button onclick="copySuggestion(${i}, this)">Copy</button></div>` : ''}
           ${!q.supported && q.inTailored ? `<div class="gap-honest">Named in the tailored resume, but your original shows no evidence for it. Check the Truth Check tab before sending.</div>` : ''}
           ${!q.supported && !q.inTailored ? `<div class="gap-honest">No evidence in your resume, so it wasn't added. This is a real gap to close or address in the interview.</div>` : ''}
           ${q.supported && q.inTailored && !q.inOriginal ? `<div style="color:var(--accent);">Now named explicitly in the tailored resume.</div>` : ''}
@@ -1051,7 +1051,7 @@
 
   function markSaved(appId) {
     const btn = document.getElementById('save-pipeline-btn');
-    btn.disabled = false; btn.textContent = '✓ SAVED · VIEW IN PIPELINE →';
+    btn.disabled = false; btn.textContent = '✓ Saved · View in pipeline →';
     document.getElementById('cl-link').href = `/cover?app=${encodeURIComponent(appId)}`;
   }
 
@@ -1060,7 +1060,7 @@
     if (savedAppId) { window.location.href = `/pipeline?open=${encodeURIComponent(savedAppId)}`; return; }
     if (!lastRun || !store) return;
     const { resume, job, result: r } = lastRun;
-    btn.disabled = true; btn.textContent = 'SAVING…';
+    btn.disabled = true; btn.textContent = 'Saving…';
     try {
       const firstLine = job.split('\n').map(l => l.trim()).find(Boolean) || 'Untitled role';
       const app = await store.create({
@@ -1107,7 +1107,7 @@
   }
   function copyResume(){
     navigator.clipboard.writeText(document.getElementById('tailored-text').textContent);
-    const btn=document.getElementById('copy-btn');btn.textContent='✓ COPIED';btn.classList.add('copied');
+    const btn=document.getElementById('copy-btn');btn.textContent='✓ Copied';btn.classList.add('copied');
     setTimeout(()=>{btn.textContent='COPY';btn.classList.remove('copied');},2000);
   }
   function downloadPDF(){
@@ -1403,7 +1403,7 @@
 
     doc.save('Tailored_Resume.pdf');
     const btn = document.getElementById('download-btn');
-    btn.textContent = '✓ SAVED';
+    btn.textContent = '✓ Saved';
     btn.classList.add('copied');
     setTimeout(() => { btn.textContent = '↓ PDF'; btn.classList.remove('copied'); }, 2000);
   }

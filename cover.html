@@ -175,7 +175,7 @@
     <p>You've used your 3 free resume tailors. Upgrade to Pro for unlimited access.</p>
     <div class="price">$3.99</div>
     <div class="price-sub">per month · cancel anytime</div>
-    <button class="modal-cta" onclick="upgrade()">UPGRADE TO PRO</button>
+    <button class="modal-cta" onclick="upgrade()">Upgrade to Pro</button>
     <button class="modal-close" onclick="closePaywall()">maybe later</button>
   </div>
 </div>
@@ -183,15 +183,15 @@
 <nav>
   <img src="/logo.jpg" alt="Resumatch" style="width:32px;height:32px;border-radius:6px;object-fit:cover;">
   <a href="/" class="nav-logo">RESUMATCH</a>
-  <div class="nav-links" style="margin-left:16px;">
-    <a href="/app" class="nav-link">Resume tailor</a>
-    <button class="nav-link active" onclick="void(0)">Cover letter</button>
-    <a href="/pipeline" class="nav-link">Pipeline</a>
+  <div class="nav-links">
+    <a href="/app" class="nav-link"><span class="nav-num">1</span>Tailor</a>
+    <a href="/cover" class="nav-link active" aria-current="page"><span class="nav-num">2</span>Cover letter</a>
+    <a href="/pipeline" class="nav-link"><span class="nav-num">3</span>Pipeline</a>
   </div>
   <div class="nav-right">
     <span class="nav-usage" id="nav-usage"></span>
-    <button class="nav-upgrade" id="nav-upgrade" onclick="upgrade()" style="display:none;">UPGRADE</button>
-    <button class="nav-logout" onclick="logout()">LOG OUT</button>
+    <button class="nav-upgrade" id="nav-upgrade" onclick="upgrade()" style="display:none;">Upgrade</button>
+    <button class="nav-logout" onclick="logout()">Log out</button>
   </div>
 </nav>
 
@@ -214,7 +214,7 @@
         <div class="char-count"><span id="resume-count">0</span> chars</div>
         <button class="file-upload-btn" onclick="document.getElementById('resume-file').click()">
           <svg style="width:14px;height:14px;vertical-align:middle;margin-right:6px;stroke:currentColor;fill:none;stroke-width:2.5;stroke-linecap:round;stroke-linejoin:round;" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
-          UPLOAD PDF/DOC
+          Upload PDF or DOC
         </button>
         <input type="file" id="resume-file" accept=".pdf,.doc,.docx,.txt" style="display:none" onchange="handleFileUpload(event,'resume')">
         <div class="file-name-display" id="resume-file-name"></div>
@@ -230,7 +230,7 @@
         <div class="char-count"><span id="job-count">0</span> chars</div>
         <button class="file-upload-btn" onclick="document.getElementById('job-file').click()">
           <svg style="width:14px;height:14px;vertical-align:middle;margin-right:6px;stroke:currentColor;fill:none;stroke-width:2.5;stroke-linecap:round;stroke-linejoin:round;" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
-          UPLOAD PDF/DOC
+          Upload PDF or DOC
         </button>
         <input type="file" id="job-file" accept=".pdf,.doc,.docx,.txt" style="display:none" onchange="handleFileUpload(event,'job')">
         <div class="file-name-display" id="job-file-name"></div>
@@ -277,7 +277,7 @@
       </div>
     </div>
 
-    <button class="btn-primary fade-in" onclick="generate()">GENERATE COVER LETTER →</button>
+    <button class="btn-primary fade-in" onclick="generate()">Generate cover letter →</button>
 
     <!-- HISTORY -->
     <div class="divider"></div>
@@ -314,7 +314,7 @@
       <div class="letter-bar">
         <span class="letter-label">COVER LETTER</span>
         <div class="letter-spacer"></div>
-        <button class="copy-btn" id="copy-btn" onclick="copyLetter()">COPY</button>
+        <button class="copy-btn" id="copy-btn" onclick="copyLetter()">Copy</button>
         <button class="copy-btn" id="download-btn" onclick="downloadCoverLetterPDF()">↓ PDF</button>
       </div>
       <div class="letter-body">
@@ -324,13 +324,13 @@
 
     </div>
     <div class="result-footer fade-in">
-      <button class="btn-ghost" onclick="reset()">← START OVER</button>
-      <button class="btn-ghost" onclick="regenerate()" style="border-color:rgba(var(--accent-rgb),0.2);color:var(--accent);">REGENERATE</button>
+      <button class="btn-ghost" onclick="reset()">← Start over</button>
+      <button class="btn-ghost" onclick="regenerate()" style="border-color:rgba(var(--accent-rgb),0.2);color:var(--accent);">Regenerate</button>
     </div>
     <div class="attach-row fade-in" id="attach-row">
       <span class="attach-label">PIPELINE</span>
       <select id="attach-select" class="attach-select"></select>
-      <button class="copy-btn" id="attach-btn" onclick="attachToPipeline()">SAVE LETTER TO CARD</button>
+      <button class="copy-btn" id="attach-btn" onclick="attachToPipeline()">Save letter to card</button>
       <a href="/pipeline" id="attach-link" class="attach-link" style="display:none;">View pipeline →</a>
     </div>
   </div>
@@ -580,7 +580,7 @@
     const sel = document.getElementById('attach-select');
     const btn = document.getElementById('attach-btn');
     document.getElementById('attach-link').style.display = 'none';
-    btn.disabled = false; btn.textContent = 'SAVE LETTER TO CARD';
+    btn.disabled = false; btn.textContent = 'Save letter to card';
     if (!store) return;
     const apps = (await store.list()).filter(a => a.status !== 'closed' || a.id === pipelineApp?.id);
     const label = (a) => `${a.company || 'Untitled'}${a.role ? ' · ' + a.role : ''}`.slice(0, 60);
@@ -596,7 +596,7 @@
     const sel = document.getElementById('attach-select');
     const btn = document.getElementById('attach-btn');
     if (!store || !lastLetter) return;
-    btn.disabled = true; btn.textContent = 'SAVING…';
+    btn.disabled = true; btn.textContent = 'Saving…';
     try {
       let app;
       if (sel.value === '__new') {
@@ -614,7 +614,7 @@
         });
       }
       pipelineApp = app;
-      btn.textContent = '✓ SAVED TO CARD';
+      btn.textContent = '✓ Saved to card';
       const link = document.getElementById('attach-link');
       link.href = `/pipeline?open=${encodeURIComponent(app.id)}`;
       link.style.display = 'inline';
@@ -633,7 +633,7 @@
   function copyLetter() {
     navigator.clipboard.writeText(document.getElementById('letter-text').textContent);
     const btn = document.getElementById('copy-btn');
-    btn.textContent = '✓ COPIED'; btn.classList.add('copied');
+    btn.textContent = '✓ Copied'; btn.classList.add('copied');
     setTimeout(() => { btn.textContent = 'COPY'; btn.classList.remove('copied'); }, 2000);
   }
 
@@ -896,7 +896,7 @@
 
     const btn = document.getElementById('download-btn');
     doc.save('Cover_Letter.pdf');
-    btn.textContent = '✓ SAVED';
+    btn.textContent = '✓ Saved';
     setTimeout(() => { btn.textContent = '↓ PDF'; }, 2000);
   }
 </script>
