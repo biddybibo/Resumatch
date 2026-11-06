@@ -225,3 +225,40 @@ button.rm-callout { cursor: pointer; }
   nav > img[src="/logo.jpg"] { display: none; }
   nav { gap: 6px !important; padding: 0 12px !important; }
 }
+
+/* iPhone: pages extend under the status bar (viewport-fit=cover), so the sticky
+   header grows by the safe-area inset and covers it. Nothing peeks above it. */
+nav { padding-top: env(safe-area-inset-top) !important; height: calc(56px + env(safe-area-inset-top)) !important;
+  padding-left: max(16px, env(safe-area-inset-left)); padding-right: max(16px, env(safe-area-inset-right)); }
+@media (min-width: 701px) { nav { padding-left: max(32px, env(safe-area-inset-left)); padding-right: max(32px, env(safe-area-inset-right)); } }
+.drawer { padding-top: env(safe-area-inset-top); padding-bottom: env(safe-area-inset-bottom); }
+
+/* Phones: comfortable touch targets and single-column flows. */
+@media (max-width: 700px) {
+  .rm-steps { gap: 6px 10px; }
+  .rm-steps-sep { display: none; }
+  .rm-step { font-size: 12px; }
+  .rm-seg button { height: 32px; padding: 0 10px; }
+  .rm-card-head { margin-bottom: 10px; }
+  .rm-job { padding: 12px; gap: 12px; }
+  .rm-job-items { width: 100%; }
+  .result-footer { flex-direction: column-reverse; align-items: stretch !important; }
+  .result-footer > * { justify-content: center; text-align: center; width: 100%; }
+  .btn-primary, .btn-ghost, .btn-save, .copy-btn, .tab-btn, .d-tab, .stage { min-height: 40px; }
+  .tab-bar { overflow-x: auto; flex-wrap: nowrap !important; scrollbar-width: none; }
+  .tab-bar::-webkit-scrollbar { display: none; }
+  .tab-btn { white-space: nowrap; }
+  .rm-paper { padding: 18px 16px; font-size: 13.5px !important; }
+  .rd-row { padding: 12px; } .rd-sec-head { padding: 10px 12px; }
+  /* Pipeline header: badge on its own line, two equal buttons. */
+  .head-actions { flex-wrap: wrap; }
+  .head-actions .mode-badge { width: 100%; text-align: center; }
+  .head-actions .btn-ghost, .head-actions .btn-primary { flex: 1; text-align: center; white-space: nowrap; justify-content: center; }
+  .board { grid-template-columns: repeat(5, 86vw) !important; scroll-padding: 0 16px; }
+  .col { min-height: 240px !important; }
+  .d-tabs { overflow-x: auto; scrollbar-width: none; } .d-tabs::-webkit-scrollbar { display: none; }
+  .d-subtabs { display: flex; overflow-x: auto; flex-wrap: nowrap; } .d-subtabs button { white-space: nowrap; }
+  .stage-bar .stage { font-size: 10px; padding: 7px 2px; }
+}
+nav { background: linear-gradient(to bottom, var(--bg) env(safe-area-inset-top), var(--nav-bg) env(safe-area-inset-top)) !important; -webkit-backdrop-filter: blur(16px); }
+html { overflow-x: clip; }
