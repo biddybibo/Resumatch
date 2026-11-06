@@ -276,3 +276,9 @@ html { background-color: var(--bg); }
 @media (max-width: 1000px) { .result-layout { grid-template-columns: minmax(0, 1fr) !important; } .result-layout > * { min-width: 0; } }
 @media (max-width: 700px) { .rm-job-actions .btn-ghost { white-space: nowrap; font-size: 12px; padding: 9px 10px; } }
 @media (max-width: 700px) { .result-layout .result-grid { grid-template-columns: minmax(0, 1fr) !important; } .result-layout .result-grid > * { min-width: 0; } }
+
+/* Long file names / imported job titles truncate instead of widening the card. */
+.rm-file { min-width: 0; }
+.rm-file-meta { min-width: 0; overflow: hidden; text-overflow: ellipsis; flex-shrink: 1; max-width: 45%; }
+.rm-file-name { flex: 1 1 auto; }
+.rm-file button { flex: none; }
