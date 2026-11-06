@@ -684,7 +684,8 @@
   let drawerTab = 'resume';
   function openDrawer(id, tab) {
     openId = id;
-    drawerTab = tab || (nudge(apps.find(a => a.id === id) || {}) ? 'followup' : 'resume');
+    const opened = apps.find(a => a.id === id) || {};
+    drawerTab = tab || (nudge(opened) ? 'followup' : opened.truthCheck?.flags?.length ? 'truth' : 'resume');
     renderDrawer();
     document.getElementById('drawer').classList.add('show');
     document.getElementById('scrim').classList.add('show');
@@ -701,6 +702,21 @@
     if (reasonResolve) { pickReason(null); return; } // cancel the close-reason dialog first
     closeDrawer(); closeAdd();
   });
+
+  const DRAWER_GROUPS = [
+    { key: 'docs', label: 'Documents', tabs: [['resume', 'Resume'], ['changes', 'Changes'], ['letter', 'Cover letter'], ['job', 'Job post']] },
+    { key: 'fit', label: 'Fit', tabs: [['gaps', 'Gaps'], ['truth', 'Truth check']] },
+    { key: 'next', label: 'Next steps', tabs: [['followup', 'Follow-up'], ['interview', 'Interview prep']] },
+    { key: 'details', label: 'Details', tabs: [['activity', 'Activity']] },
+  ];
+  const lastSubTab = {};
+  function openGroup(key) {
+    const cur = DRAWER_GROUPS.find(g => g.tabs.some(([k]) => k === drawerTab));
+    if (cur) lastSubTab[cur.key] = drawerTab;
+    const g = DRAWER_GROUPS.find(x => x.key === key);
+    drawerTab = lastSubTab[key] || g.tabs[0][0];
+    renderDrawer();
+  }
 
   function renderDrawer() {
     const a = apps.find(x => x.id === openId);
@@ -733,15 +749,22 @@
           ${hasAfter ? `<div class="score-box"><div class="field-label">${Number.isFinite(a.fitScore) ? 'ATS KEYWORDS' : 'MATCH SCORE'}</div><div class="v">${hasBefore ? `<span class="was">${a.matchScoreBefore}${Number.isFinite(a.fitScore) ? '%' : ''} →</span>` : ''}<span style="color:var(--accent)">${a.matchScoreAfter}${Number.isFinite(a.fitScore) ? '%' : ''}</span></div></div>` : ''}
           ${an.total ? `<div class="score-box"><div class="field-label">KEYWORD COVERAGE</div><div class="v"><span class="was">${an.coverageBefore} →</span>${an.coverageAfter}<span style="font-size:14px;color:var(--muted)"> / ${an.total}</span></div></div>` : ''}
         </div>` : ''}
-        <div class="d-grid">
-          <div><label class="field-label" for="f-next">NEXT STEP</label><input class="input" id="f-next" value="${esc(a.nextStep)}" placeholder="e.g. Follow up with recruiter" onchange="saveField('nextStep', this.value)"></div>
-          <div><label class="field-label" for="f-date">DUE</label><input class="input" type="date" id="f-date" value="${a.nextStepDate || ''}" onchange="saveField('nextStepDate', this.value || null)"></div>
-          <div style="grid-column:1/-1"><label class="field-label" for="f-url">JOB LINK</label><input class="input" id="f-url" type="url" value="${esc(a.jobUrl)}" placeholder="https://" onchange="saveField('jobUrl', this.value)"></div>
-          <div style="grid-column:1/-1"><label class="field-label" for="f-notes">NOTES</label><textarea class="input" id="f-notes" placeholder="Recruiter name, referral, what they asked in the screen…" onchange="saveField('notes', this.value)">${esc(a.notes)}</textarea></div>
-        </div>
-        <div class="d-tabs">${[['resume', 'Resume'], ['changes', 'Changes'], ['truth', `Truth check${a.truthCheck?.flags?.length ? ' (' + a.truthCheck.flags.length + ')' : ''}`], ['gaps', 'Gaps'], ['letter', 'Cover letter'], ['followup', `Follow-up${nudge(a) ? ' •' : ''}`], ['interview', 'Interview prep'], ['job', 'Job post'], ['activity', 'Activity']]
-          .map(([k, l]) => `<button class="d-tab ${drawerTab === k ? 'active' : ''}" onclick="drawerTab='${k}';renderDrawer()">${l}</button>`).join('')}</div>
-        <div class="d-pane">${paneHTML(a)}</div>
+        ${(() => {
+          // Four groups instead of nine tabs; each remembers the sub-view you were on.
+          const flags = a.truthCheck?.flags?.length || 0;
+          const group = DRAWER_GROUPS.find(g => g.tabs.some(([k]) => k === drawerTab)) || DRAWER_GROUPS[0];
+          const count = (g) => g.key === 'fit' && flags ? `<span class="d-count danger">${flags}</span>` : g.key === 'next' && nudge(a) ? '<span class="d-count warn">1</span>' : '';
+          const nextFields = `<div class="d-grid">
+            <div><label class="field-label" for="f-next">NEXT STEP</label><input class="input" id="f-next" value="${esc(a.nextStep)}" placeholder="e.g. Follow up with recruiter" onchange="saveField('nextStep', this.value)"></div>
+            <div><label class="field-label" for="f-date">DUE</label><input class="input" type="date" id="f-date" value="${a.nextStepDate || ''}" onchange="saveField('nextStepDate', this.value || null)"></div></div>`;
+          const detailFields = `<div class="d-grid">
+            <div style="grid-column:1/-1"><label class="field-label" for="f-url">JOB LINK</label><input class="input" id="f-url" type="url" value="${esc(a.jobUrl)}" placeholder="https://" onchange="saveField('jobUrl', this.value)"></div>
+            <div style="grid-column:1/-1"><label class="field-label" for="f-notes">NOTES</label><textarea class="input" id="f-notes" placeholder="Recruiter name, referral, what they asked in the screen…" onchange="saveField('notes', this.value)">${esc(a.notes)}</textarea></div></div>`;
+          const sub = group.tabs.length > 1 ? `<div class="d-subtabs" role="tablist">${group.tabs.map(([k, l]) => `<button role="tab" aria-selected="${drawerTab === k}" class="${drawerTab === k ? 'active' : ''}" onclick="drawerTab='${k}';renderDrawer()">${l}${k === 'truth' && flags ? ` (${flags})` : ''}${k === 'followup' && nudge(a) ? ' •' : ''}</button>`).join('')}</div>` : '';
+          return `<div class="d-tabs" role="tablist">${DRAWER_GROUPS.map(g => `<button role="tab" aria-selected="${g === group}" class="d-tab ${g === group ? 'active' : ''}" onclick="openGroup('${g.key}')">${g.label}${count(g)}</button>`).join('')}</div>
+            ${group.key === 'next' ? nextFields : ''}${group.key === 'details' ? detailFields : ''}
+            ${sub}<div class="d-pane">${paneHTML(a)}</div>`;
+        })()}
       </div>
       <div class="d-foot">
         <a class="btn-primary" href="/cover?app=${encodeURIComponent(a.id)}">${a.coverLetter ? 'Rewrite' : 'Write'} cover letter</a>
@@ -760,7 +783,7 @@
     switch (drawerTab) {
       case 'resume':
         return a.tailoredResume
-          ? `<div class="pane-actions">${copyBtn('tailoredResume', 'RESUME')}</div><pre>${esc(a.tailoredResume)}</pre>`
+          ? `<div class="pane-actions">${copyBtn('tailoredResume', 'RESUME')}</div><pre class="rm-paper">${esc(a.tailoredResume)}</pre>`
           : `<div class="empty-pane">No tailored resume yet. <a href="/app">Tailor one for this role →</a></div>`;
       case 'changes': {
         if (!a.tailoredResume || !a.originalResume) return `<div class="empty-pane">Tracked changes appear once a resume is tailored for this role.</div>`;
@@ -777,7 +800,7 @@
       }
       case 'letter':
         return a.coverLetter
-          ? `<div class="pane-actions">${copyBtn('coverLetter', 'LETTER')}</div><pre>${esc(a.coverLetter)}</pre>`
+          ? `<div class="pane-actions">${copyBtn('coverLetter', 'LETTER')}</div><pre class="rm-paper">${esc(a.coverLetter)}</pre>`
           : `<div class="empty-pane">No cover letter yet. <a href="/cover?app=${encodeURIComponent(a.id)}">Write one from this card's resume and job post →</a></div>`;
       case 'truth': return truthPane(a);
       case 'followup': return followupPane(a);

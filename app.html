@@ -67,7 +67,12 @@
       .score-pair .score-number { font-size:42px; }
       .loading-title { font-size:18px; }
     }
-    .input-card { padding:20px; position:relative; }
+    .input-card { padding:20px; position:relative; transition:border-color .15s; }
+    .input-card.drag-over { border-color:var(--accent); }
+    .input-card [hidden] { display:none !important; }
+    .rm-drop { min-height:320px; }
+    #loading-screen .status-bar { margin-top:4px; }
+    #grid-canvas { opacity:.5; }
     .file-drop-zone { position:absolute; top:60px; left:20px; right:20px; bottom:44px; border:2px dashed var(--border); border-radius:8px; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:12px; opacity:0; pointer-events:none; transition:all 0.3s; background:rgba(0,0,0,0.5); z-index:10; }
     .file-drop-zone.drag-over { opacity:1; border-color:var(--accent); background:rgba(var(--accent-rgb),0.05); }
     .file-drop-text { font-size:15px; color:var(--muted); letter-spacing:0.5px; }
@@ -217,8 +222,8 @@
     .truth-head{display:flex;gap:12px;align-items:center;margin-bottom:16px;flex-wrap:wrap;font-size:14px;color:var(--c-bbb);line-height:1.6;}
     .truth-head span{flex:1;min-width:220px;}
     .truth-head b{font-family:var(--font-display);font-size:20px;}
-    .truth-item{border:1px solid var(--border);border-left:3px solid var(--danger);border-radius:8px;padding:12px 14px;margin-bottom:10px;font-size:14px;line-height:1.6;}
-    .truth-item.embellished{border-left-color:var(--warn);}
+    .truth-item{border:1px solid rgba(var(--danger-rgb),0.35);background:rgba(var(--danger-rgb),0.04);border-radius:8px;padding:12px 14px;margin-bottom:10px;font-size:14px;line-height:1.6;}
+    .truth-item.embellished{border-color:rgba(var(--warn-rgb),0.35);background:rgba(var(--warn-rgb),0.04);}
     .truth-claim{color:var(--c-ffb0b0);word-break:break-word;}
     .truth-item.embellished .truth-claim{color:var(--c-f3e2a8);}
     .truth-tag{font-size:11px;letter-spacing:1.5px;color:var(--muted);margin-bottom:6px;}
@@ -282,52 +287,55 @@
   <div id="input-screen">
     <div class="hero fade-in">
       <h1>Tailor your resume.<br><span>Land the interview.</span></h1>
-      <p>Paste your resume and the job description. Resumatch optimizes keywords, eliminates AI-generated fluff, and adds quantifiable impact — keeping it honest, making it hit.</p>
+      <p>Add your resume and the job. We rewrite it around the posting, add impact, and never invent experience.</p>
     </div>
+    <ol class="rm-steps" id="steps" aria-label="Progress">
+      <li class="rm-step" data-step="resume"><span class="rm-step-n">1</span>Your resume</li><li class="rm-steps-sep" aria-hidden="true"></li>
+      <li class="rm-step" data-step="job"><span class="rm-step-n">2</span>Job description</li><li class="rm-steps-sep" aria-hidden="true"></li>
+      <li class="rm-step" data-step="review"><span class="rm-step-n">3</span>Review &amp; save</li>
+    </ol>
     <div class="error-banner" id="error-banner">⚠ <span id="error-msg"></span></div>
     <div class="input-grid fade-in">
       <div class="card input-card" id="resume-card">
-        <div class="input-label">YOUR RESUME</div>
-        <textarea id="resume-input" placeholder="Paste your current resume here...&#10;&#10;• Work experience&#10;• Skills&#10;• Education&#10;• Accomplishments" oninput="updateCount('resume-input','resume-count')"></textarea>
-        <div class="char-count"><span id="resume-count">0</span> chars</div>
-        <button class="file-upload-btn" onclick="document.getElementById('resume-file').click()">
-          <svg style="width:14px;height:14px;vertical-align:middle;margin-right:6px;stroke:currentColor;fill:none;stroke-width:2.5;stroke-linecap:round;stroke-linejoin:round;" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
-          Upload PDF or DOC
-        </button>
-        <input type="file" id="resume-file" accept=".pdf,.doc,.docx,.txt" style="display:none" onchange="handleFileUpload(event, 'resume')">
-        <div class="file-name-display" id="resume-file-name"></div>
-        <div class="file-drop-zone" id="resume-drop-zone">
-          <svg style="width:40px;height:40px;stroke:var(--muted);fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
-          <div class="file-drop-text">Drop your resume file here</div>
-          <div class="file-drop-hint">PDF, DOC, DOCX, or TXT</div>
+        <div class="rm-card-head"><span class="rm-card-title">Your resume</span>
+          <div class="rm-seg" role="group" aria-label="Resume source"><button type="button" data-mode="upload" onclick="setMode('resume','upload')"><svg viewBox="0 0 24 24"><path d="M12 15V3M7 8l5-5 5 5M4 15v4a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-4"/></svg>Upload</button><button type="button" data-mode="paste" onclick="setMode('resume','paste')"><svg viewBox="0 0 24 24"><path d="M4 7V5h16v2M9 19h6M12 5v14"/></svg>Paste text</button></div></div>
+        <div class="rm-file" id="resume-file-row" hidden><svg viewBox="0 0 24 24"><path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><path d="M14 3v6h6"/></svg><span class="rm-file-name" id="resume-file-name"></span><span class="rm-file-meta" id="resume-file-meta"></span><button type="button" onclick="clearInput('resume')">Remove</button></div>
+        <div class="rm-drop" id="resume-upload-pane" role="button" tabindex="0" onclick="document.getElementById('resume-file').click()" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();this.click();}">
+          <svg viewBox="0 0 24 24"><path d="M12 15V3M7 8l5-5 5 5M4 15v4a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-4"/></svg><div><strong>Drop your resume here</strong> or <span class="browse">browse</span></div><div class="rm-hint">PDF, DOC, DOCX or TXT</div>
         </div>
+        <div id="resume-paste-pane">
+          <textarea id="resume-input" placeholder="Paste your current resume here...&#10;&#10;• Work experience&#10;• Skills&#10;• Education&#10;• Accomplishments" oninput="updateCount('resume-input','resume-count')"></textarea>
+          <div class="char-count"><span id="resume-count">0</span> chars</div>
+        </div>
+        <div class="rm-hint" id="resume-remembered" hidden>Using your resume from last time. <button type="button" onclick="clearInput('resume')">Use a different one</button></div>
+        <input type="file" id="resume-file" accept=".pdf,.doc,.docx,.txt" style="display:none" onchange="handleFileUpload(event, 'resume')">
       </div>
       <div class="card input-card" id="job-card">
-        <div class="input-label">JOB DESCRIPTION</div>
-        <div class="url-row">
-          <input id="job-url" class="url-input" type="url" placeholder="Paste a job link (Greenhouse, Lever, Ashby, LinkedIn...)" onkeydown="if(event.key==='Enter'){event.preventDefault();importJob();}">
-          <button class="file-upload-btn url-btn" id="job-url-btn" onclick="importJob()">Import</button>
+        <div class="rm-card-head"><span class="rm-card-title">Job description</span>
+          <div class="rm-seg" role="group" aria-label="Job description source"><button type="button" data-mode="link" onclick="setMode('job','link')"><svg viewBox="0 0 24 24"><path d="M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1"/><path d="M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1-1"/></svg>Link</button><button type="button" data-mode="upload" onclick="setMode('job','upload')"><svg viewBox="0 0 24 24"><path d="M12 15V3M7 8l5-5 5 5M4 15v4a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-4"/></svg>Upload</button><button type="button" data-mode="paste" onclick="setMode('job','paste')"><svg viewBox="0 0 24 24"><path d="M4 7V5h16v2M9 19h6M12 5v14"/></svg>Paste text</button></div></div>
+        <div class="rm-file" id="job-file-row" hidden><svg viewBox="0 0 24 24"><path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><path d="M14 3v6h6"/></svg><span class="rm-file-name" id="job-file-name"></span><span class="rm-file-meta" id="job-file-meta"></span><button type="button" onclick="clearInput('job')">Remove</button></div>
+        <div id="job-link-pane">
+          <div class="url-row">
+            <input id="job-url" class="url-input" type="url" aria-label="Job link" placeholder="Greenhouse, Lever, Ashby or LinkedIn URL" onkeydown="if(event.key==='Enter'){event.preventDefault();importJob();}">
+            <button class="file-upload-btn url-btn" id="job-url-btn" onclick="importJob()">Import</button>
+          </div>
+          <div class="url-status" id="job-url-status"></div>
+          <div class="rm-hint">We'll pull the title, company and full description. No link? Switch to Upload or Paste text.</div>
         </div>
-        <div class="url-status" id="job-url-status"></div>
-        <textarea id="job-input" placeholder="Paste the job posting here...&#10;&#10;• Responsibilities&#10;• Required qualifications&#10;• Preferred skills&#10;• About the company" oninput="updateCount('job-input','job-count')"></textarea>
-        <div class="char-count"><span id="job-count">0</span> chars</div>
-        <button class="file-upload-btn" onclick="document.getElementById('job-file').click()">
-          <svg style="width:14px;height:14px;vertical-align:middle;margin-right:6px;stroke:currentColor;fill:none;stroke-width:2.5;stroke-linecap:round;stroke-linejoin:round;" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
-          Upload PDF or DOC
-        </button>
+        <div class="rm-drop" id="job-upload-pane" role="button" tabindex="0" onclick="document.getElementById('job-file').click()" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();this.click();}">
+          <svg viewBox="0 0 24 24"><path d="M12 15V3M7 8l5-5 5 5M4 15v4a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-4"/></svg><div><strong>Drop the job posting here</strong> or <span class="browse">browse</span></div><div class="rm-hint">PDF, DOC, DOCX or TXT</div>
+        </div>
+        <div id="job-paste-pane">
+          <textarea id="job-input" placeholder="Paste the job posting here...&#10;&#10;• Responsibilities&#10;• Required qualifications&#10;• Preferred skills&#10;• About the company" oninput="updateCount('job-input','job-count')"></textarea>
+          <div class="char-count"><span id="job-count">0</span> chars</div>
+        </div>
         <input type="file" id="job-file" accept=".pdf,.doc,.docx,.txt" style="display:none" onchange="handleFileUpload(event, 'job')">
-        <div class="file-name-display" id="job-file-name"></div>
-        <div class="file-drop-zone" id="job-drop-zone">
-          <svg style="width:40px;height:40px;stroke:var(--muted);fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
-          <div class="file-drop-text">Drop job description here</div>
-          <div class="file-drop-hint">PDF, DOC, DOCX, or TXT</div>
-        </div>
       </div>
     </div>
-    <button class="btn-primary fade-in" onclick="analyze()">Tailor my resume →</button>
+    <div class="rm-actionbar fade-in"><span class="rm-hint" id="action-hint"></span><button class="btn-primary" id="tailor-btn" onclick="analyze()">Tailor my resume →</button></div>
 
     <div class="divider"></div>
-    <div class="hist-section-label">PREVIOUS TAILORED RESUMES</div>
+    <div class="hist-section-label">RECENT</div>
     <div class="hist-sub">Click a card to view its results again: tailored resume, tracked changes, gap analysis and truth check. Use Re-tailor to load it back into the inputs.</div>
     <div id="hist-area"></div>
   </div>
@@ -335,15 +343,16 @@
     <canvas id="grid-canvas"></canvas>
     <div class="loading-content">
       <div class="dots"><div class="dot"></div><div class="dot"></div><div class="dot"></div><div class="dot"></div><div class="dot"></div></div>
-      <div class="loading-title">Analyzing your resume</div>
+      <div class="loading-title">Tailoring your resume</div>
+      <ul class="rm-load-list" id="load-list"></ul>
       <div class="status-bar">
-        <div class="status-step" id="status-step">Parsing resume structure...</div>
         <div class="status-track"><div class="status-fill" id="status-fill"></div></div>
       </div>
       <div class="loading-sub" id="loading-sub"></div>
     </div>
   </div>
   <div id="result-screen">
+    <div class="rm-job fade-in" id="job-bar"></div>
     <div class="result-layout">
     <div class="result-grid fade-in">
       <div class="card score-card">
@@ -369,6 +378,7 @@
         <div id="coverage-block"></div>
         <div class="keyword-tags" id="keywords-list"></div>
       </div>
+      <button type="button" class="rm-callout" id="truth-callout" hidden onclick="showTab('truth')"></button>
     </div>
     <div class="card tabs-wrapper fade-in">
       <div class="tab-bar">
@@ -381,17 +391,17 @@
         <button class="copy-btn" id="copy-btn" onclick="copyResume()">Copy</button>
       </div>
       <div class="tab-content">
-        <div id="tab-tailored"><pre id="tailored-text"></pre></div>
+        <div id="tab-tailored"><pre id="tailored-text" class="rm-paper"></pre></div>
         <div id="tab-changes"></div>
         <div id="tab-gaps"></div>
         <div id="tab-truth"></div>
       </div>
     </div>
     </div>
-    <div class="result-footer fade-in" style="gap:12px;">
+    <div class="result-footer fade-in" style="gap:12px;justify-content:flex-end;">
       <button class="btn-ghost" onclick="reset()">← Start over</button>
+      <a href="/cover" id="cl-link" class="btn-ghost" style="text-decoration:none;display:inline-flex;align-items:center;">Write cover letter →</a>
       <button class="btn-save" id="save-pipeline-btn" onclick="saveToPipeline()">+ Save to pipeline</button>
-      <a href="/cover" id="cl-link" class="btn-ghost" style="border-color:rgba(var(--accent-rgb),0.2);color:var(--accent);text-decoration:none;display:inline-flex;align-items:center;">Write cover letter →</a>
     </div>
   </div>
 </div>
@@ -489,7 +499,7 @@
     window.location.href = '/';
   }
 
-  function updateCount(a,b){document.getElementById(b).textContent=document.getElementById(a).value.length;}
+  function updateCount(a,b){document.getElementById(b).textContent=document.getElementById(a).value.length;if(document.getElementById('steps'))updateSteps();}
   function showError(m){document.getElementById('error-msg').textContent=m;document.getElementById('error-banner').style.display='block';}
   function hideError(){document.getElementById('error-banner').style.display='none';}
   function setScreen(s){
@@ -501,35 +511,64 @@
   function scoreColor(s){return s>=80?'var(--accent)':s>=60?'var(--warn)':'var(--danger)';}
   
   // File upload and drag-and-drop functionality
-  function setupDragAndDrop(cardId, dropZoneId, inputId, type) {
+  function setupDragAndDrop(cardId, type) {
     const card = document.getElementById(cardId);
-    const dropZone = document.getElementById(dropZoneId);
-    
-    ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
-      card.addEventListener(eventName, preventDefaults, false);
-    });
-    
-    function preventDefaults(e) {
-      e.preventDefault();
-      e.stopPropagation();
-    }
-    
-    ['dragenter', 'dragover'].forEach(eventName => {
-      card.addEventListener(eventName, () => dropZone.classList.add('drag-over'), false);
-    });
-    
-    ['dragleave', 'drop'].forEach(eventName => {
-      card.addEventListener(eventName, () => dropZone.classList.remove('drag-over'), false);
-    });
-    
-    card.addEventListener('drop', (e) => {
-      const files = e.dataTransfer.files;
-      if (files.length > 0) {
-        handleFile(files[0], type);
-      }
-    }, false);
+    const stop = (e) => { e.preventDefault(); e.stopPropagation(); };
+    ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(n => card.addEventListener(n, stop, false));
+    ['dragenter', 'dragover'].forEach(n => card.addEventListener(n, () => card.classList.add('drag-over'), false));
+    ['dragleave', 'drop'].forEach(n => card.addEventListener(n, () => card.classList.remove('drag-over'), false));
+    card.addEventListener('drop', (e) => { const files = e.dataTransfer.files; if (files.length > 0) handleFile(files[0], type); }, false);
   }
-  
+
+  // ── Input sources: Upload / Paste text (/ Link for the job) ─────────────
+  const modes = { resume: 'upload', job: 'link' };
+  function setMode(kind, mode) {
+    modes[kind] = mode;
+    const card = document.getElementById(kind + '-card');
+    card.querySelectorAll('.rm-seg button').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.mode === mode)));
+    document.getElementById(kind + '-upload-pane').hidden = mode !== 'upload';
+    document.getElementById(kind + '-paste-pane').hidden = mode !== 'paste';
+    if (kind === 'job') document.getElementById('job-link-pane').hidden = mode !== 'link';
+  }
+  function showFileRow(kind, name, meta) {
+    document.getElementById(kind + '-file-name').textContent = name;
+    document.getElementById(kind + '-file-meta').textContent = meta || '';
+    document.getElementById(kind + '-file-row').hidden = false;
+  }
+  function clearInput(kind) {
+    const input = document.getElementById(kind + '-input');
+    input.value = ''; updateCount(kind + '-input', kind + '-count');
+    document.getElementById(kind + '-file').value = '';
+    document.getElementById(kind + '-file-row').hidden = true;
+    if (kind === 'resume') document.getElementById('resume-remembered').hidden = true;
+    if (kind === 'job') { document.getElementById('job-url').value = ''; document.getElementById('job-url-status').textContent = ''; lastJobUrl = ''; }
+    setMode(kind, kind === 'job' ? 'link' : 'upload');
+    saveDraft();
+  }
+  // Returning users start from the resume they tailored last time.
+  function applyRememberedResume() {
+    const el = document.getElementById('resume-input');
+    if (!el.value.trim()) {
+      const last = readHistory().find(e => e.originalResume);
+      if (last) { el.value = last.originalResume; updateCount('resume-input', 'resume-count'); document.getElementById('resume-remembered').hidden = false; }
+    }
+    setMode('resume', el.value.trim() ? 'paste' : 'upload');
+  }
+  // Step flow + the reason next to the Tailor button.
+  function updateSteps() {
+    const has = (id) => document.getElementById(id).value.trim().length > 0;
+    const r = has('resume-input'), j = has('job-input');
+    const state = { resume: r ? 'done' : 'current', job: j ? 'done' : (r ? 'current' : ''), review: r && j ? 'current' : '' };
+    document.querySelectorAll('#steps .rm-step').forEach(li => {
+      const st = state[li.dataset.step];
+      li.className = 'rm-step' + (st ? ' ' + st : '');
+      li.querySelector('.rm-step-n').textContent = st === 'done' ? '✓' : { resume: 1, job: 2, review: 3 }[li.dataset.step];
+    });
+    const hint = !r && !j ? 'Add your resume and the job to continue' : !r ? 'Add your resume to continue' : !j ? 'Add the job description to continue' : '';
+    document.getElementById('action-hint').textContent = hint;
+    document.getElementById('tailor-btn').setAttribute('aria-disabled', String(!!hint));
+  }
+
   async function handleFileUpload(event, type) {
     const file = event.target.files[0];
     if (file) {
@@ -539,13 +578,9 @@
   
   async function handleFile(file, type) {
     const inputId = type === 'resume' ? 'resume-input' : 'job-input';
-    const fileNameId = type === 'resume' ? 'resume-file-name' : 'job-file-name';
     const countId = type === 'resume' ? 'resume-count' : 'job-count';
-    
-    // Show file name
-    const fileNameDisplay = document.getElementById(fileNameId);
-    fileNameDisplay.textContent = `📎 ${file.name}`;
-    fileNameDisplay.classList.add('show');
+    showFileRow(type, file.name, 'Reading…');
+    hideError();
     
     // Parse file based on type
     try {
@@ -559,19 +594,26 @@
                  file.type === 'application/msword') {
         text = await parseDoc(file);
       } else {
+        document.getElementById(type + '-file-row').hidden = true;
         showError('Unsupported file type. Please use PDF, DOC, DOCX, or TXT.');
         return;
       }
       
       if (!text || !text.trim()) {
+        document.getElementById(type + '-file-row').hidden = true;
         showError('That file has no selectable text (it may be a scanned image). Try a text-based PDF or paste the text instead.');
         return;
       }
       // Set the textarea value
       document.getElementById(inputId).value = text;
       updateCount(inputId, countId);
+      showFileRow(type, file.name, 'Parsed · check the text below');
+      if (type === 'resume') document.getElementById('resume-remembered').hidden = true;
+      setMode(type, 'paste');
+      saveDraft();
       
     } catch (error) {
+      document.getElementById(type + '-file-row').hidden = true;
       showError(`Couldn't read that file: ${error.message} You can copy and paste the text instead.`);
       console.error('File parsing error:', error);
     }
@@ -624,8 +666,8 @@
   
   // Initialize drag and drop on page load
   document.addEventListener('DOMContentLoaded', () => {
-    setupDragAndDrop('resume-card', 'resume-drop-zone', 'resume-input', 'resume');
-    setupDragAndDrop('job-card', 'job-drop-zone', 'job-input', 'job');
+    setupDragAndDrop('resume-card', 'resume');
+    setupDragAndDrop('job-card', 'job');
   });
   
   async function analyze(){
@@ -679,8 +721,8 @@
           if(!line.startsWith('data: '))continue;
           const msg=JSON.parse(line.slice(6));
           if(msg.error)throw new Error(msg.error);
-          if(msg.retrying){stopStatusCycle();document.getElementById('loading-sub').textContent=`High demand — retrying (${msg.attempt}/${msg.maxRetries})... please wait`;}
-          if(msg.partial&&msg.chars){stopStatusCycle();document.getElementById('loading-sub').textContent=`Writing · ${msg.chars} characters generated...`;}
+          if(msg.retrying){document.getElementById('loading-sub').textContent=`High demand — retrying (${msg.attempt}/${msg.maxRetries})... please wait`;}
+          if(msg.partial&&msg.chars){advanceStatus(2);document.getElementById('loading-sub').textContent=`Writing · ${msg.chars} characters so far`;}
           if(msg.done){
             if(session){
               if(profile) profile.tailor_count++;
@@ -851,8 +893,10 @@
     renderGaps(a);
 
     const saveBtn = document.getElementById('save-pipeline-btn');
-    saveBtn.disabled = false; saveBtn.textContent = '+ SAVE TO PIPELINE';
-    document.getElementById('cl-link').href = '/cover';
+    saveBtn.disabled = false; saveBtn.textContent = '+ Save to pipeline';
+    // Cover letter picks up this resume + job (no re-pasting).
+    document.getElementById('cl-link').href = lastRun?.historyId ? `/cover?id=${encodeURIComponent(lastRun.historyId)}` : '/cover';
+    renderJobBar();
     setScreen('result');
   }
 
@@ -866,6 +910,23 @@
   }
 
   // ── Job link import ──────────────────────────────────────────────────────
+  // The job this result is for, shown above the results.
+  function renderJobBar() {
+    const bar = document.getElementById('job-bar');
+    const r = lastRun?.result; if (!bar || !r) return;
+    const a = r.analysis || {};
+    const firstLine = (lastRun.job || '').split('\n').map(l => l.trim()).find(Boolean) || 'Untitled role';
+    const company = a.company || '', role = a.role || firstLine.slice(0, 80);
+    const score = 'fitScore' in r ? r.fitScore : r.matchScore;
+    bar.innerHTML = `<div class="rm-job-mark">${esc((company || role).trim().charAt(0).toUpperCase() || '?')}</div>
+      <div class="rm-job-text"><div class="rm-job-company">${esc(company || role)}</div>${company ? `<div class="rm-job-role">${esc(role)}</div>` : ''}</div>
+      <div class="rm-job-items">
+        ${savedAppId ? `<a class="rm-chip" href="/pipeline?open=${encodeURIComponent(savedAppId)}"><span class="rm-dot" style="background:var(--c-9999aa)"></span>In pipeline</a>` : '<span class="rm-chip">Not in pipeline yet</span>'}
+        ${Number.isFinite(score) ? `<span class="rm-chip accent">✓ ${'fitScore' in r ? 'Fit' : 'Match'} ${score}</span>` : ''}
+        ${lastRun.jobUrl ? `<a class="rm-chip" href="${esc(lastRun.jobUrl)}" target="_blank" rel="noopener">Job post ↗</a>` : ''}
+      </div>`;
+  }
+
   async function importJob() {
     const input = document.getElementById('job-url');
     const status = document.getElementById('job-url-status');
@@ -883,6 +944,9 @@
       const via = { Greenhouse: 'Greenhouse', Lever: 'Lever', Ashby: 'Ashby', LinkedIn: 'LinkedIn', JobPosting: 'the job page', page: 'the page text' }[job.source] || 'the page';
       status.className = 'url-status ok';
       status.textContent = `✓ Imported ${job.title ? '"' + job.title + '"' : 'job'}${job.company ? ' at ' + job.company : ''} from ${via}.${job.source === 'page' ? ' Double-check it, this site had no structured listing.' : ''}`;
+      showFileRow('job', `${job.title || 'Job posting'}${job.company ? ' · ' + job.company : ''}`, `Imported from ${via}${job.source === 'page' ? ' · double-check it' : ''}`);
+      setMode('job', 'paste');
+      saveDraft();
     } catch (e) {
       status.className = 'url-status err'; status.textContent = e.message;
     } finally {
@@ -914,6 +978,7 @@
     const btn = document.getElementById('truth-tab-btn');
     if (!run) return;
     pill.style.display = 'inline-block';
+    document.getElementById('truth-callout').hidden = true;
     if (run.truthState === 'running') {
       pill.className = 'truth-pill'; pill.textContent = 'Truth check · running…';
       btn.textContent = 'Truth check';
@@ -932,6 +997,12 @@
       return;
     }
     const flags = run.truth?.flags || [];
+    const callout = document.getElementById('truth-callout');
+    callout.hidden = false;
+    callout.className = 'rm-callout ' + (flags.length ? 'warn' : 'ok');
+    callout.innerHTML = flags.length
+      ? `<span class="ic">⚠</span><span><b>${flags.length} claim${flags.length > 1 ? 's' : ''} to verify</b>Not fully backed by your original resume. Review before sending →</span>`
+      : `<span class="ic">✓</span><span><b>Every claim checks out</b>Nothing goes beyond what your original resume says.</span>`;
     btn.textContent = `Truth check${flags.length ? ` (${flags.length})` : ''}`;
     pill.className = 'truth-pill ' + (flags.length ? 'warn' : 'ok');
     pill.textContent = flags.length ? `⚠ ${flags.length} claim${flags.length > 1 ? 's' : ''} to verify` : '✓ All claims backed';
@@ -940,9 +1011,9 @@
       tab.innerHTML = `<div class="truth-clean"><b>Every claim checks out.</b>${checked ? `${checked} factual claims` : 'Every factual claim'} in the tailored resume is backed by your original, and no new numbers were introduced.</div>`;
       return;
     }
-    tab.innerHTML = `<div class="truth-head"><b style="color:var(--danger)">${flags.length}</b><span>claim${flags.length > 1 ? 's' : ''} ${checked ? `out of ${checked} checked ` : ''}aren't fully backed by your original resume. Fix or confirm ${flags.length > 1 ? 'them' : 'it'} before sending. Flagged lines are also marked in Tracked Changes.</span></div>` +
+    tab.innerHTML = `<div class="truth-head"><b style="color:var(--danger)">${flags.length}</b><span>claim${flags.length > 1 ? 's' : ''} ${checked ? `out of ${checked} checked ` : ''}aren't fully backed by your original resume. Fix or confirm ${flags.length > 1 ? 'them' : 'it'} before sending. Flagged lines are also marked in Changes.</span></div>` +
       flags.map((f, i) => `<div class="truth-item ${f.verdict}">
-        <div class="truth-tag">${f.source === 'numbers' ? 'NEW NUMBER' : f.verdict.toUpperCase()}</div>
+        <div class="truth-tag">${f.source === 'numbers' ? 'NEW NUMBER' : String(f.verdict || 'unsupported').toUpperCase()}</div>
         <div class="truth-claim">“${esc(f.claim)}”</div>
         <div class="truth-issue">${esc(f.issue)}</div>
         ${f.evidence ? `<div class="truth-ev">Original says: “${esc(f.evidence)}”</div>` : ''}
@@ -1005,7 +1076,7 @@
     const tab = document.getElementById('tab-gaps');
     const btn = document.getElementById('gaps-tab-btn');
     if (!a || !a.requirements.length) {
-      btn.textContent = 'GAP ANALYSIS';
+      btn.textContent = 'Gaps';
       tab.innerHTML = '<div class="gap-empty">Gap analysis wasn\'t available for this run. Try tailoring again.</div>';
       return;
     }
@@ -1013,12 +1084,12 @@
     const hasLevels = a.requirements.some(q => q.level);
     btn.textContent = `Gaps (${a.requirements.filter(q => hasLevels ? q.level !== 'strong' : !q.inTailored).length})`;
     const mark = (v) => `<span class="gap-mark ${v ? 'yes' : 'no'}">${v ? '✓' : '✗'}</span>`;
-    const LEVEL = { strong: 'STRONG', partial: 'PARTIAL', none: 'NONE' };
+    const LEVEL = { strong: '✓ Strong', partial: '◐ Partial', none: '✗ Not shown' };
     tab.innerHTML = `
       ${a.summary ? `<div class="gap-summary"><b>BIGGEST GAP</b>${esc(a.summary)}</div>` : ''}
       <div class="gap-head"><div>REQUIREMENT</div><div>${hasLevels ? 'YOUR FIT' : 'BEFORE'}</div><div>${hasLevels ? 'KEYWORD' : 'AFTER'}</div><div>EVIDENCE / SUGGESTED BULLET</div></div>
       ${a.requirements.map((q, i) => `<div class="gap-row">
-        <div><div class="gap-skill">${esc(q.skill)}</div><span class="gap-imp ${q.importance}">${q.importance.toUpperCase()}</span></div>
+        <div><div class="gap-skill">${esc(q.skill)}</div><span class="gap-imp ${esc(q.importance || '')}">${esc(String(q.importance || '').replace(/^./, c => c.toUpperCase()))}</span></div>
         ${hasLevels
           ? `<div><span class="fit-badge ${q.level}">${LEVEL[q.level] || '—'}</span></div><div class="kw-marks" title="Named word for word: original → tailored">${mark(q.inOriginal)}<span>→</span>${mark(q.inTailored)}</div>`
           : `<div>${mark(q.inOriginal)}</div><div>${mark(q.inTailored)}</div>`}
@@ -1053,6 +1124,7 @@
     const btn = document.getElementById('save-pipeline-btn');
     btn.disabled = false; btn.textContent = '✓ Saved · View in pipeline →';
     document.getElementById('cl-link').href = `/cover?app=${encodeURIComponent(appId)}`;
+    renderJobBar();
   }
 
   async function saveToPipeline() {
@@ -1086,7 +1158,7 @@
       const where = store.mode === 'cloud' ? 'to your account' : 'on this device';
       showToast(`Saved ${where}.<a href="/pipeline?open=${encodeURIComponent(app.id)}">Open pipeline →</a>`);
     } catch (e) {
-      btn.disabled = false; btn.textContent = '+ SAVE TO PIPELINE';
+      btn.disabled = false; btn.textContent = '+ Save to pipeline';
       showToast('Could not save. Please try again.');
       console.error(e);
     }
@@ -1414,8 +1486,9 @@
     document.getElementById('job-url').value='';document.getElementById('job-url-status').textContent='';lastJobUrl='';
     document.getElementById('resume-file').value='';document.getElementById('job-file').value='';
     document.getElementById('resume-count').textContent='0';document.getElementById('job-count').textContent='0';
-    document.getElementById('resume-file-name').classList.remove('show');
-    document.getElementById('job-file-name').classList.remove('show');
+    document.getElementById('resume-file-row').hidden=true;document.getElementById('job-file-row').hidden=true;
+    document.getElementById('resume-remembered').hidden=true;
+    setMode('job','link');applyRememberedResume();updateSteps();
     document.querySelectorAll('.tab-btn').forEach((b,i)=>b.classList.toggle('active',i===0));
     document.getElementById('tab-tailored').style.display='block';document.getElementById('tab-changes').style.display='none';document.getElementById('tab-gaps').style.display='none';document.getElementById('tab-truth').style.display='none';
     document.getElementById('copy-btn').style.display='inline-block';document.getElementById('download-btn').style.display='inline-block';hideError();setScreen('input');
@@ -1536,52 +1609,45 @@
   }
 
   // ── Status cycle animation ──────────────────────────────────────────────
+  // Shown as a checklist while tailoring. Timed (the API streams no stages); the
+  // rewrite step also starts as soon as the first characters stream back.
   const STATUS_STEPS = [
-    'Parsing resume structure...',
-    'Identifying your key skills...',
-    'Reading the job description...',
-    'Matching keywords to requirements...',
-    'Reviewing example resumes...',
-    'Scoring experience alignment...',
-    'Rewriting bullet points for impact...',
-    'Optimizing for ATS systems...',
-    'Crafting your professional summary...',
-    'Finalizing your tailored resume...',
+    'Read your resume',
+    'Pull the requirements from the job post',
+    'Rewrite your bullets around the posting',
+    'Score the fit and check keywords',
   ];
 
   let _statusTimer = null;
   let _statusIdx = 0;
 
+  function renderStatusList(active, allDone) {
+    const list = document.getElementById('load-list');
+    const fill = document.getElementById('status-fill');
+    if (!list) return;
+    list.innerHTML = STATUS_STEPS.map((t, i) => {
+      const st = allDone || i < active ? 'done' : i === active ? 'active' : '';
+      const mk = st === 'done' ? '✓' : st === 'active' ? '<span class="rm-spin"></span>' : '';
+      return `<li class="${st}"><span class="mk">${mk}</span>${t}</li>`;
+    }).join('');
+    if (fill) fill.style.width = allDone ? '100%' : `${Math.min(92, ((active + 0.5) / STATUS_STEPS.length) * 100)}%`;
+  }
+  function advanceStatus(to) {
+    if (to <= _statusIdx) return;
+    _statusIdx = Math.min(to, STATUS_STEPS.length - 1);
+    renderStatusList(_statusIdx);
+  }
   function startStatusCycle() {
+    stopStatusCycle(true);
     _statusIdx = 0;
-    stopStatusCycle();
-    const stepEl = document.getElementById('status-step');
-    const fillEl = document.getElementById('status-fill');
-    if (!stepEl || !fillEl) return;
-
-    function tick() {
-      // Fade out
-      stepEl.classList.add('fade');
-      setTimeout(() => {
-        stepEl.textContent = STATUS_STEPS[_statusIdx % STATUS_STEPS.length];
-        fillEl.style.width = `${Math.min(95, (_statusIdx / (STATUS_STEPS.length - 1)) * 100)}%`;
-        stepEl.classList.remove('fade');
-        _statusIdx++;
-        _statusTimer = setTimeout(tick, 2800);
-      }, 500);
-    }
-
-    // Set first step immediately (no fade-in delay)
-    stepEl.textContent = STATUS_STEPS[0];
-    fillEl.style.width = '0%';
-    _statusIdx = 1;
-    _statusTimer = setTimeout(tick, 2800);
+    renderStatusList(0);
+    const tick = () => { if (_statusIdx < STATUS_STEPS.length - 2) { advanceStatus(_statusIdx + 1); _statusTimer = setTimeout(tick, 6000); } };
+    _statusTimer = setTimeout(tick, 4000);
   }
 
-  function stopStatusCycle() {
+  function stopStatusCycle(silent) {
     if (_statusTimer) { clearTimeout(_statusTimer); _statusTimer = null; }
-    const fillEl = document.getElementById('status-fill');
-    if (fillEl) fillEl.style.width = '100%';
+    if (!silent) renderStatusList(STATUS_STEPS.length, true);
   }
 
   // ── Requirements cache: one extraction per job post, reused for every score ──
@@ -1650,6 +1716,10 @@
       lastJobUrl = draft.url || '';
       updateCount('resume-input', 'resume-count'); updateCount('job-input', 'job-count');
     }
+    // Returning users: start from the resume they used last time.
+    applyRememberedResume();
+    setMode('job', document.getElementById('job-input').value.trim() ? 'paste' : 'link');
+    updateSteps();
     for (const id of Object.values(DRAFT_FIELDS)) document.getElementById(id).addEventListener('input', saveDraft);
     window.addEventListener('pagehide', saveDraft); // also catches file uploads and link imports
 
