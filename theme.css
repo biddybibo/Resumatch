@@ -262,3 +262,8 @@ nav { padding-top: env(safe-area-inset-top) !important; height: calc(56px + env(
 }
 nav { background: linear-gradient(to bottom, var(--bg) env(safe-area-inset-top), var(--nav-bg) env(safe-area-inset-top)) !important; -webkit-backdrop-filter: blur(16px); }
 html { overflow-x: clip; }
+
+/* Phones: the header scrolls away with the page instead of staying pinned.
+   (A pinned header lets iOS 26 Safari show page content behind the status bar.) */
+@media (max-width: 700px) { nav { position: relative !important; } }
+html { background-color: var(--bg); }

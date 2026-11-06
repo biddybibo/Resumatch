@@ -21,7 +21,7 @@
       --accent-glow: rgba(0,229,160,0.25);
     }
 
-    html { scroll-behavior: smooth; overflow-x: clip; }
+    html { scroll-behavior: smooth; overflow-x: clip; background-color: #08080f; }
     .bottom-cta { overflow: hidden; }
 
     body {
@@ -367,7 +367,9 @@
     @media(max-width:700px){
       body { cursor:auto; }
       .cursor, .cursor-ring { display:none; }
-      nav { padding:env(safe-area-inset-top) 16px 0; height:calc(56px + env(safe-area-inset-top)); gap:10px; }
+      /* Phones: the header scrolls away with the page instead of staying pinned
+         (a pinned header lets iOS 26 Safari show content behind the status bar). */
+      nav { position:absolute; padding:env(safe-area-inset-top) 16px 0; height:calc(56px + env(safe-area-inset-top)); gap:10px; }
       .nav-logo { font-size:14px; letter-spacing:2px; }
       .nav-cta { font-size:11px; padding:8px 14px; cursor:pointer; }
       .hero { padding:calc(84px + env(safe-area-inset-top)) 20px 48px; min-height:auto; }
