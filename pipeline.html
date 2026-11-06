@@ -1,0 +1,1001 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>RESUMATCH — Application Pipeline</title>
+  <link rel="icon" type="image/jpeg" href="/logo.jpg">
+  <link href="https://fonts.googleapis.com/css2?family=DM+Mono:ital,wght@0,300;0,400;0,500;1,300&family=Syne:wght@700;800;900&display=swap" rel="stylesheet"/>
+  <script src="/theme.js"></script>
+  <style>
+    *, *::before, *::after { box-sizing:border-box; margin:0; padding:0; }
+    body { background:var(--bg); color:var(--text); font-family:var(--font-ui); min-height:100vh; }
+    body::before { content:''; position:fixed; inset:0; background-image:url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.03'/%3E%3C/svg%3E"); pointer-events:none; z-index:0; }
+    button, input, select, textarea { font-family:inherit; }
+
+    nav { position:sticky; top:0; z-index:100; border-bottom:1px solid var(--border); background:var(--nav-bg); backdrop-filter:blur(16px); padding:0 32px; height:56px; display:flex; align-items:center; gap:16px; }
+    .nav-logo { font-family:var(--font-display); font-weight:900; font-size:17px; letter-spacing:3px; color:var(--c-fff); text-decoration:none; }
+    .nav-links { margin-left:16px; display:flex; gap:4px; }
+    .nav-link { font-size:13px; padding:6px 14px; border-radius:6px; border:1px solid transparent; color:var(--muted); text-decoration:none; letter-spacing:1px; transition:all 0.2s; background:none; cursor:pointer; }
+    .nav-link:hover { color:var(--text); }
+    .nav-link.active { border-color:rgba(var(--accent-rgb),0.3); color:var(--accent); background:rgba(var(--accent-rgb),0.06); }
+    .nav-right { margin-left:auto; display:flex; align-items:center; gap:12px; }
+    .nav-btn { background:none; border:1px solid var(--border-light); color:var(--muted); font-size:12px; padding:5px 12px; border-radius:6px; cursor:pointer; text-decoration:none; }
+    .nav-btn:hover { border-color:var(--c-888); color:var(--c-ccc); }
+
+    .page { position:relative; z-index:1; padding:32px; max-width:1600px; margin:0 auto; }
+    .head { display:flex; align-items:flex-end; gap:20px; flex-wrap:wrap; margin-bottom:24px; }
+    .head h1 { font-family:var(--font-display); font-weight:900; font-size:clamp(26px,4vw,40px); letter-spacing:-1px; line-height:1.1; }
+    .head h1 span { color:var(--accent); }
+    .head p { color:var(--muted); font-size:14px; margin-top:8px; line-height:1.6; max-width:520px; }
+    .head-actions { margin-left:auto; display:flex; gap:10px; align-items:center; }
+    .mode-badge { font-size:11px; letter-spacing:1.5px; padding:4px 10px; border-radius:20px; border:1px solid var(--border-light); color:var(--muted); }
+    .mode-badge.cloud { color:var(--accent); border-color:rgba(var(--accent-rgb),0.3); background:rgba(var(--accent-rgb),0.06); }
+    .btn-primary { background:var(--accent); color:var(--on-accent); border:none; border-radius:8px; padding:10px 18px; font-weight:500; font-size:13px; letter-spacing:1px; cursor:pointer; transition:box-shadow 0.2s; text-decoration:none; display:inline-block; }
+    .btn-primary:hover { box-shadow:0 0 24px rgba(var(--accent-rgb),0.35); }
+    .btn-ghost { background:transparent; border:1px solid var(--border-light); color:var(--muted); border-radius:8px; padding:9px 16px; font-size:13px; letter-spacing:1px; cursor:pointer; text-decoration:none; display:inline-block; transition:all 0.2s; }
+    .btn-ghost:hover { border-color:var(--c-888); color:var(--c-ccc); }
+    .btn-danger { background:transparent; border:1px solid rgba(var(--danger-rgb),0.3); color:var(--danger); border-radius:8px; padding:9px 16px; font-size:13px; letter-spacing:1px; cursor:pointer; }
+
+    .banner { border-radius:10px; padding:12px 16px; font-size:14px; margin-bottom:18px; display:none; align-items:center; gap:12px; flex-wrap:wrap; line-height:1.5; }
+    .banner.show { display:flex; }
+    .banner.info { background:rgba(var(--blue-rgb),0.06); border:1px solid rgba(var(--blue-rgb),0.25); color:var(--c-cde6ff); }
+    .banner.warn { background:rgba(var(--warn-rgb),0.06); border:1px solid rgba(var(--warn-rgb),0.25); color:var(--c-f3e2a8); }
+    .banner button { margin-left:auto; }
+
+    .stats { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:14px; margin-bottom:22px; }
+    .stat { background:var(--surface); border:1px solid var(--border); border-radius:12px; padding:16px 18px; }
+    .stat-label { font-size:11px; letter-spacing:2px; color:var(--muted); margin-bottom:8px; }
+    .stat-val { font-family:var(--font-display); font-weight:800; font-size:28px; line-height:1; }
+    .stat-sub { font-size:12px; color:var(--muted); margin-top:6px; }
+
+    .due { background:var(--surface); border:1px solid var(--border); border-radius:12px; padding:14px 18px; margin-bottom:22px; display:none; }
+    .due.show { display:block; }
+    .due-title { font-size:11px; letter-spacing:2px; color:var(--muted); margin-bottom:10px; }
+    .due-list { display:flex; gap:10px; overflow-x:auto; padding-bottom:4px; }
+    .due-item { flex-shrink:0; border:1px solid var(--border-light); border-radius:8px; padding:8px 12px; font-size:13px; cursor:pointer; background:var(--surface-2); max-width:280px; }
+    .due-item:hover { border-color:var(--accent); }
+    .due-item .when { font-size:11px; letter-spacing:1px; margin-bottom:3px; }
+    .due-item .what { color:var(--c-ccc); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+
+    .board { display:grid; grid-template-columns:repeat(5,minmax(240px,1fr)); gap:14px; overflow-x:auto; padding-bottom:12px; scroll-snap-type:x mandatory; }
+    .col { background:var(--col-bg); border:1px solid var(--border); border-radius:14px; min-height:420px; display:flex; flex-direction:column; scroll-snap-align:start; transition:border-color 0.15s, background 0.15s; }
+    .col.drop { border-color:var(--accent); background:rgba(var(--accent-rgb),0.03); }
+    .col-head { display:flex; align-items:center; gap:8px; padding:14px 14px 10px; }
+    .col-dot { width:8px; height:8px; border-radius:50%; }
+    .col-name { font-size:12px; letter-spacing:2px; color:var(--text); }
+    .col-count { margin-left:auto; font-size:12px; color:var(--muted); background:var(--border); padding:2px 8px; border-radius:20px; }
+    .col-body { flex:1; padding:4px 10px 12px; display:flex; flex-direction:column; gap:10px; }
+    .col-empty { font-size:12px; color:var(--c-555); text-align:center; padding:24px 8px; border:1px dashed var(--border); border-radius:10px; line-height:1.6; }
+    .drop-marker { height:3px; border-radius:2px; background:var(--accent); box-shadow:0 0 8px var(--accent); }
+
+    .card { background:var(--surface); border:1px solid var(--border); border-radius:10px; padding:12px 13px; cursor:grab; transition:border-color 0.15s, transform 0.15s, opacity 0.15s; user-select:none; }
+    .card:hover { border-color:var(--border-light); transform:translateY(-1px); }
+    .card.dragging { opacity:0.35; }
+    .card.flash { animation:flash 1.6s ease; }
+    @keyframes flash { 0%,40% { border-color:var(--accent); box-shadow:0 0 18px rgba(var(--accent-rgb),0.3); } 100% { border-color:var(--border); box-shadow:none; } }
+    .card-company { font-family:var(--font-display); font-weight:700; font-size:15px; color:var(--c-fff); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    .card-role { font-size:13px; color:var(--muted); margin-top:2px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    .card-meta { display:flex; align-items:center; gap:6px; margin-top:10px; flex-wrap:wrap; }
+    .chip { font-size:11px; letter-spacing:0.5px; padding:2px 7px; border-radius:20px; border:1px solid var(--border-light); color:var(--muted); }
+    .chip.score { color:var(--accent); border-color:rgba(var(--accent-rgb),0.25); }
+    .chip.doc { color:var(--blue); border-color:rgba(var(--blue-rgb),0.25); }
+    .card-age { margin-left:auto; font-size:11px; color:var(--c-555); }
+    .card-next { margin-top:10px; padding-top:9px; border-top:1px solid var(--border); font-size:12px; color:var(--c-aaa); display:flex; gap:6px; align-items:baseline; }
+    .card-next .date { flex-shrink:0; font-size:11px; letter-spacing:0.5px; }
+    .card-next .txt { white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    .overdue { color:var(--danger); } .today { color:var(--warn); } .upcoming { color:var(--muted); }
+
+    /* Drawer */
+    .scrim { position:fixed; inset:0; background:rgba(0,0,0,0.55); backdrop-filter:blur(3px); z-index:200; opacity:0; pointer-events:none; transition:opacity 0.25s; }
+    .scrim.show { opacity:1; pointer-events:auto; }
+    .drawer { position:fixed; top:0; right:0; bottom:0; width:min(720px,100vw); background:var(--surface); border-left:1px solid var(--border); z-index:201; transform:translateX(100%); transition:transform 0.3s cubic-bezier(.2,.8,.2,1); display:flex; flex-direction:column; }
+    .drawer.show { transform:translateX(0); }
+    .d-head { padding:20px 24px 16px; border-bottom:1px solid var(--border); }
+    .d-top { display:flex; align-items:flex-start; gap:12px; }
+    .d-titles { flex:1; min-width:0; }
+    .inline-input { width:100%; background:transparent; border:1px solid transparent; border-radius:6px; color:var(--text); padding:3px 6px; margin-left:-6px; }
+    .inline-input:hover { border-color:var(--border); }
+    .inline-input:focus { outline:none; border-color:var(--accent); background:var(--inset-3); }
+    .d-company { font-family:var(--font-display); font-weight:800; font-size:22px; }
+    .d-role { font-size:14px; color:var(--muted); margin-top:2px; }
+    .d-close { background:none; border:1px solid var(--border-light); color:var(--muted); width:32px; height:32px; border-radius:8px; cursor:pointer; font-size:16px; flex-shrink:0; }
+    .d-close:hover { color:var(--text); border-color:var(--c-888); }
+    .stage-bar { display:flex; gap:4px; margin-top:16px; }
+    .stage { flex:1; font-size:11px; letter-spacing:1px; padding:7px 4px; text-align:center; border-radius:6px; border:1px solid var(--border); color:var(--muted); background:none; cursor:pointer; transition:all 0.15s; }
+    .stage:hover { border-color:var(--border-light); color:var(--text); }
+    .stage.done { color:var(--c-bbb); background:rgba(var(--fg-rgb),0.03); }
+    .stage.current { color:var(--on-accent); font-weight:500; }
+    .d-scroll { flex:1; overflow-y:auto; padding:20px 24px 32px; }
+    .d-grid { display:grid; grid-template-columns:1fr 1fr; gap:14px; margin-bottom:18px; }
+    .field-label { font-size:11px; letter-spacing:2px; color:var(--muted); margin-bottom:6px; display:block; }
+    .input { width:100%; background:var(--inset-3); border:1px solid var(--border); border-radius:8px; color:var(--text); padding:9px 11px; font-size:14px; }
+    .input:focus { outline:none; border-color:var(--accent); }
+    textarea.input { resize:vertical; min-height:90px; line-height:1.6; }
+    input[type=date].input { color-scheme:dark; }
+    .score-strip { display:flex; gap:14px; margin-bottom:18px; flex-wrap:wrap; }
+    .score-box { flex:1; min-width:140px; background:var(--inset-25); border:1px solid var(--border); border-radius:10px; padding:12px 14px; }
+    .score-box .v { font-family:var(--font-display); font-weight:800; font-size:24px; }
+    .score-box .v .was { color:var(--c-666); font-size:16px; margin-right:6px; }
+    .d-tabs { display:flex; gap:4px; border-bottom:1px solid var(--border); margin:6px 0 16px; overflow-x:auto; }
+    .d-tab { background:none; border:none; border-bottom:2px solid transparent; color:var(--muted); font-size:12px; letter-spacing:1px; padding:10px 12px; cursor:pointer; white-space:nowrap; }
+    .d-tab.active { color:var(--text); border-bottom-color:var(--accent); }
+    .d-pane pre { font-family:var(--font-ui); font-size:13.5px; line-height:1.8; color:var(--c-ccc); white-space:pre-wrap; word-break:break-word; }
+    .pane-actions { display:flex; gap:8px; margin-bottom:12px; flex-wrap:wrap; }
+    .empty-pane { color:var(--muted); font-size:14px; line-height:1.7; padding:18px; border:1px dashed var(--border-light); border-radius:10px; text-align:center; }
+    .empty-pane a { color:var(--accent); }
+    .gap-line { display:grid; grid-template-columns:minmax(0,1fr) 60px 52px; gap:10px; padding:10px 0; border-bottom:1px solid var(--border); font-size:13px; align-items:start; }
+    .gap-line .s { color:var(--text); word-break:break-word; } .gap-line .s small { display:block; color:var(--c-777); margin-top:3px; font-size:12px; }
+    .yes { color:var(--accent); } .no { color:var(--c-555); }
+    .timeline { border-left:1px solid var(--border-light); margin-left:6px; padding-left:16px; }
+    .tl-item { position:relative; font-size:13px; color:var(--c-bbb); padding-bottom:14px; }
+    .tl-item::before { content:''; position:absolute; left:-21px; top:4px; width:9px; height:9px; border-radius:50%; background:var(--border-light); }
+    .tl-item.stage::before { background:var(--accent); }
+    .tl-item time { display:block; font-size:11px; color:var(--c-666); margin-bottom:2px; letter-spacing:0.5px; }
+    .d-foot { display:flex; gap:10px; padding:14px 24px; border-top:1px solid var(--border); flex-wrap:wrap; }
+    .d-foot .spacer { flex:1; }
+    .saved-hint { font-size:12px; color:var(--accent); opacity:0; transition:opacity 0.3s; align-self:center; }
+    .saved-hint.show { opacity:1; }
+
+    .chip.nudge { color:var(--danger); border-color:rgba(var(--danger-rgb),0.35); background:rgba(var(--danger-rgb),0.06); }
+    .ai-box { border:1px solid var(--border); border-radius:12px; padding:16px; background:var(--inset-2); }
+    .ai-row { display:flex; gap:10px; align-items:center; flex-wrap:wrap; margin-bottom:14px; }
+    .ai-row select { width:auto; min-width:220px; }
+    .ai-hint { font-size:13px; color:var(--muted); line-height:1.6; }
+    .ai-err { font-size:13px; color:var(--danger); margin-top:8px; }
+    .spin { display:inline-block; width:10px; height:10px; border:2px solid currentColor; border-right-color:transparent; border-radius:50%; animation:spin 0.8s linear infinite; vertical-align:-1px; margin-right:6px; }
+    @keyframes spin { to { transform:rotate(360deg); } }
+    .email-subject { margin-bottom:8px; }
+    textarea.email-body { min-height:200px; }
+    .q { border:1px solid var(--border); border-radius:10px; margin-bottom:10px; background:var(--inset-2); }
+    .q summary { list-style:none; cursor:pointer; padding:12px 14px; display:flex; gap:10px; align-items:flex-start; font-size:14px; color:var(--text); line-height:1.5; }
+    .q summary::-webkit-details-marker { display:none; }
+    .q summary::after { content:'+'; margin-left:auto; color:var(--muted); flex-shrink:0; }
+    .q[open] summary::after { content:'−'; }
+    .q-type { font-size:11px; letter-spacing:1px; padding:2px 7px; border-radius:20px; border:1px solid var(--border-light); color:var(--muted); flex-shrink:0; margin-top:1px; }
+    .q-type.behavioral { color:var(--violet); border-color:rgba(var(--violet-rgb),0.3); } .q-type.technical { color:var(--blue); border-color:rgba(var(--blue-rgb),0.3); }
+    .q-type.role { color:var(--accent); border-color:rgba(var(--accent-rgb),0.3); } .q-type.company { color:var(--warn); border-color:rgba(var(--warn-rgb),0.3); }
+    .q-body { padding:0 14px 14px; font-size:13.5px; line-height:1.7; color:var(--c-bbb); }
+    .q-why { color:var(--c-777); font-style:italic; margin-bottom:10px; }
+    .star { display:grid; grid-template-columns:24px 1fr; gap:4px 10px; }
+    .star b { font-family:var(--font-display); color:var(--accent); font-size:15px; }
+    .q-tip { margin-top:10px; padding-top:8px; border-top:1px solid var(--border); color:var(--c-e8d9a0); font-size:13px; }
+    .ask-list { margin:6px 0 0 18px; font-size:14px; color:var(--c-ccc); line-height:1.8; }
+    .flag { border:1px solid var(--border); border-left:3px solid var(--danger); border-radius:8px; padding:10px 12px; margin-bottom:8px; font-size:13.5px; line-height:1.6; }
+    .flag.embellished { border-left-color:var(--warn); }
+    .flag .c { color:var(--c-ffb0b0); } .flag.embellished .c { color:var(--c-f3e2a8); }
+    .flag .i { color:var(--c-999); font-size:13px; margin-top:3px; }
+    .flag .f { color:var(--c-cfe); font-size:13px; margin-top:6px; }
+    .modal-status { font-size:13px; margin-top:6px; line-height:1.5; }
+    .modal-status.ok { color:var(--accent); } .modal-status.err { color:var(--danger); } .modal-status.busy { color:var(--muted); }
+
+    .chip.fit { color:var(--accent); border-color:rgba(var(--accent-rgb),0.25); }
+    .chip.kw { color:var(--muted); }
+    .chip.closed { color:var(--c-999); }
+    .chip.closed.rejected { color:var(--danger); border-color:rgba(var(--danger-rgb),0.3); }
+    .stale-bar { display:flex; align-items:center; gap:12px; flex-wrap:wrap; border:1px solid rgba(var(--warn-rgb),0.3); background:rgba(var(--warn-rgb),0.06); border-radius:10px; padding:10px 14px; margin-bottom:16px; font-size:13px; color:var(--c-f3e2a8); }
+    .stale-bar button { margin-left:auto; }
+    .reason-opts { display:grid; gap:10px; margin-top:6px; }
+    .reason-opt { text-align:left; background:var(--inset-3); border:1px solid var(--border); border-radius:10px; padding:12px 14px; color:var(--text); cursor:pointer; font-family:var(--font-ui); font-size:14px; }
+    .reason-opt:hover { border-color:var(--accent); }
+    .reason-opt small { display:block; color:var(--muted); font-size:12px; margin-top:3px; }
+    .insights { background:var(--surface); border:1px solid var(--border); border-radius:12px; padding:16px 18px; margin-bottom:22px; display:grid; grid-template-columns:1fr 1fr; gap:24px; }
+    .ins-title { font-size:11px; letter-spacing:2px; color:var(--muted); margin-bottom:10px; }
+    .ins-rows { display:grid; gap:7px; }
+    .ins-row { display:grid; grid-template-columns:92px 1fr 70px; gap:10px; align-items:center; font-size:12px; color:var(--c-bbb); }
+    .ins-bar { height:6px; background:var(--border); border-radius:4px; overflow:hidden; }
+    .ins-bar span { display:block; height:100%; background:var(--violet); border-radius:4px; }
+    .ins-note { font-size:12px; color:var(--muted); line-height:1.6; }
+    .ins-note b { color:var(--text); }
+    .consent { margin-top:12px; padding-top:12px; border-top:1px solid var(--border); display:flex; gap:10px; align-items:flex-start; font-size:12px; color:var(--c-bbb); line-height:1.6; }
+    .consent input { margin-top:3px; accent-color:var(--accent); }
+    .consent a { color:var(--muted); }
+    @media (max-width:800px) { .insights { grid-template-columns:1fr; } }
+
+    /* Add modal */
+    .modal { position:fixed; inset:0; z-index:300; display:none; align-items:center; justify-content:center; background:rgba(0,0,0,0.6); backdrop-filter:blur(4px); padding:16px; }
+    .modal.show { display:flex; }
+    .modal-box { background:var(--surface); border:1px solid var(--border); border-radius:16px; padding:28px; width:100%; max-width:440px; }
+    .modal-box h2 { font-family:var(--font-display); font-weight:800; font-size:20px; margin-bottom:6px; }
+    .modal-box p { font-size:13px; color:var(--muted); margin-bottom:18px; line-height:1.6; }
+    .modal-box .row { margin-bottom:12px; }
+    .modal-actions { display:flex; gap:10px; justify-content:flex-end; margin-top:18px; }
+
+    .loading { color:var(--muted); font-size:14px; padding:40px; text-align:center; }
+
+    @media (max-width:1100px) { .board { grid-template-columns:repeat(5,minmax(250px,80vw)); } }
+    @media (max-width:700px) {
+      nav { padding:0 12px; gap:8px; } .nav-logo { display:none; } .nav-links { margin-left:0; } .nav-link { padding:6px 7px; font-size:12px; letter-spacing:0; }
+      .page { padding:20px 16px; }
+      .stats { grid-template-columns:repeat(2,minmax(0,1fr)); }
+      .head-actions { margin-left:0; width:100%; }
+      .d-grid { grid-template-columns:1fr; }
+      .d-head, .d-scroll, .d-foot { padding-left:16px; padding-right:16px; }
+    }
+  </style>
+  <link rel="stylesheet" href="/theme.css"/>
+</head>
+<body>
+<nav>
+  <img src="/logo.jpg" alt="Resumatch" style="width:32px;height:32px;border-radius:6px;object-fit:cover;">
+  <a href="/" class="nav-logo">RESUMATCH</a>
+  <div class="nav-links">
+    <a href="/app" class="nav-link">Resume tailor</a>
+    <a href="/cover" class="nav-link">Cover letter</a>
+    <button class="nav-link active">Pipeline</button>
+  </div>
+  <div class="nav-right">
+    <button class="nav-btn" id="logout-btn" onclick="logout()" style="display:none;">LOG OUT</button>
+    <a class="nav-btn" id="login-btn" href="/login" style="display:none;">LOG IN</a>
+  </div>
+</nav>
+
+<div class="page">
+  <div class="head">
+    <div>
+      <h1>Application <span>pipeline.</span></h1>
+      <p>Every role you're chasing, from saved to offer. Each card keeps its tailored resume, cover letter, gap analysis, notes and next step together.</p>
+    </div>
+    <div class="head-actions">
+      <span class="mode-badge" id="mode-badge"></span>
+      <a class="btn-ghost" href="/app">TAILOR A RESUME</a>
+      <button class="btn-primary" onclick="openAdd()">+ ADD APPLICATION</button>
+    </div>
+  </div>
+
+  <div class="banner info" id="import-banner">
+    <span id="import-msg"></span>
+    <button class="btn-primary" onclick="importLocal()">IMPORT TO ACCOUNT</button>
+  </div>
+  <div class="banner warn" id="fallback-banner">
+    <span>Cloud sync is unavailable right now, so changes are being saved on this device.</span>
+  </div>
+
+  <div class="stats" id="stats"></div>
+  <div class="insights" id="insights"></div>
+  <div class="due" id="due"><div class="due-title">NEXT STEPS DUE</div><div class="due-list" id="due-list"></div></div>
+  <div class="board" id="board"><div class="loading">Loading pipeline…</div></div>
+</div>
+
+<!-- Detail drawer -->
+<div class="scrim" id="scrim" onclick="closeDrawer()"></div>
+<aside class="drawer" id="drawer" aria-label="Application details"></aside>
+
+<!-- Close reason -->
+<div class="modal" id="reason-modal" onclick="if(event.target===this)pickReason(null)">
+  <div class="modal-box">
+    <h2>How did it end?</h2>
+    <p>This is how Resumatch learns which resumes get interviews. If you had an interview, it still counts as a win for the resume.</p>
+    <div class="reason-opts">
+      <button class="reason-opt" onclick="pickReason('rejected')">Rejected<small>They said no, at any stage.</small></button>
+      <button class="reason-opt" onclick="pickReason('no_response')">No response<small>Never heard back.</small></button>
+      <button class="reason-opt" onclick="pickReason('withdrew')">I withdrew<small>Took another offer or lost interest. Not counted as an outcome.</small></button>
+    </div>
+    <div class="modal-actions"><button class="btn-ghost" onclick="pickReason(null)">CANCEL</button></div>
+  </div>
+</div>
+
+<!-- Add modal -->
+<div class="modal" id="add-modal" onclick="if(event.target===this)closeAdd()">
+  <form class="modal-box" onsubmit="submitAdd(event)">
+    <h2>Add application</h2>
+    <p>Track a role you applied to outside Resumatch. Paste the job link to fill this in automatically.</p>
+    <div class="row"><label class="field-label" for="add-url">JOB LINK (OPTIONAL)</label><input class="input" id="add-url" type="url" placeholder="https://" onchange="importIntoAdd()" onpaste="setTimeout(importIntoAdd, 0)"><div class="modal-status" id="add-url-status"></div></div>
+    <div class="row"><label class="field-label" for="add-company">COMPANY</label><input class="input" id="add-company" required maxlength="120" placeholder="Northwind Labs"></div>
+    <div class="row"><label class="field-label" for="add-role">ROLE</label><input class="input" id="add-role" required maxlength="160" placeholder="Software Engineering Intern"></div>
+    <div class="row"><label class="field-label" for="add-status">STAGE</label><select class="input" id="add-status"></select></div>
+    <div class="modal-actions">
+      <button type="button" class="btn-ghost" onclick="closeAdd()">CANCEL</button>
+      <button type="submit" class="btn-primary">ADD</button>
+    </div>
+  </form>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="/pipeline-store.js"></script>
+<script src="/resume-diff.js"></script>
+<script>
+  const SUPABASE_URL = 'https://owqkwpiytuwcxpqlmktc.supabase.co';
+  const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im93cWt3cGl5dHV3Y3hwcWxta3RjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU2MTk0MDksImV4cCI6MjA5MTE5NTQwOX0.u0W75OV7LrgT3XWVlM55mfuvGX_zCujxtholxNtYikM';
+  const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+  const { STATUSES, STATUS_LABELS } = window.Pipeline;
+  const COLORS = { saved:'var(--c-9999aa)', applied:'var(--blue)', interviewing:'var(--violet)', offer:'var(--accent)', closed:'var(--c-555)' };
+  const esc = ResumeDiff.esc;
+
+  let session = null, store = null, apps = [], openId = null, dragId = null;
+  const busy = {};          // `${appId}:${task}` -> true while an AI call is running
+  const taskErrors = {};    // `${appId}:${task}` -> last error message
+  let addImported = null;   // job description fetched in the Add modal
+  const fuKind = {};        // appId -> follow-up type picked in the drawer
+
+  // ── Init ────────────────────────────────────────────────────────────────
+  (async () => {
+    try { session = (await sb.auth.getSession()).data.session; } catch { session = null; }
+    document.getElementById(session ? 'logout-btn' : 'login-btn').style.display = 'inline-block';
+    store = Pipeline.createStore(sb, session);
+    document.getElementById('add-status').innerHTML = STATUSES.map(s => `<option value="${s}">${STATUS_LABELS[s]}</option>`).join('');
+    await reload();
+    loadOutcomeData();
+    const n = store.localCount();
+    if (store.mode === 'cloud' && n) {
+      document.getElementById('import-msg').textContent = `${n} application${n > 1 ? 's' : ''} saved on this device before you logged in.`;
+      document.getElementById('import-banner').classList.add('show');
+    }
+    const want = new URLSearchParams(location.search).get('open');
+    if (want && apps.some(a => a.id === want)) { openDrawer(want); flashCard(want); }
+  })();
+
+  async function reload() {
+    apps = await store.list();
+    renderMode();
+    renderAll();
+  }
+
+  function renderMode() {
+    const b = document.getElementById('mode-badge');
+    b.className = 'mode-badge' + (store.mode === 'cloud' ? ' cloud' : '');
+    b.textContent = store.mode === 'cloud' ? '● SYNCED TO ACCOUNT' : '○ SAVED ON THIS DEVICE';
+    b.title = store.mode === 'cloud' ? 'Stored in your Resumatch account' : (session ? store.fallbackReason : 'Log in to sync across devices');
+    document.getElementById('fallback-banner').classList.toggle('show', !!session && store.mode === 'local');
+  }
+
+  async function importLocal() {
+    const n = await store.importLocal();
+    document.getElementById('import-banner').classList.remove('show');
+    await reload();
+    if (!n) alert('Import failed. Your applications are still saved on this device.');
+  }
+
+  async function logout() { await sb.auth.signOut(); location.href = '/'; }
+
+  // ── Dates ───────────────────────────────────────────────────────────────
+  const localDate = (offsetDays = 0) => { const d = new Date(Date.now() + offsetDays * 86400000); return new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 10); };
+  const todayStr = () => localDate(0);
+  function dueInfo(dateStr) {
+    if (!dateStr) return null;
+    const diff = Math.round((new Date(dateStr + 'T00:00:00') - new Date(todayStr() + 'T00:00:00')) / 86400000);
+    if (diff < 0) return { cls: 'overdue', label: `${-diff}D OVERDUE` };
+    if (diff === 0) return { cls: 'today', label: 'TODAY' };
+    if (diff === 1) return { cls: 'upcoming', label: 'TOMORROW' };
+    return { cls: 'upcoming', label: new Date(dateStr + 'T00:00:00').toLocaleDateString(undefined, { month: 'short', day: 'numeric' }).toUpperCase() };
+  }
+  function stageSince(a) {
+    const moves = (a.activity || []).filter(e => e.type === 'stage' || e.type === 'created');
+    const at = moves.length ? moves[moves.length - 1].at : a.createdAt;
+    const d = Math.floor((Date.now() - new Date(at).getTime()) / 86400000);
+    return d <= 0 ? 'today' : `${d}d`;
+  }
+  const fmtTime = (iso) => new Date(iso).toLocaleString(undefined, { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
+
+  // ── Nudges: follow-ups the user owes, derived from stage history ─────────
+  const daysAgo = (iso) => Math.floor((Date.now() - new Date(iso).getTime()) / 86400000);
+  function lastStageAt(a) {
+    const moves = (a.activity || []).filter(e => e.type === 'stage' || e.type === 'created');
+    return moves.length ? moves[moves.length - 1].at : a.createdAt;
+  }
+  function lastFollowup(a) {
+    const sent = (a.activity || []).filter(e => e.type === 'followup_sent');
+    return sent.length ? sent[sent.length - 1] : null;
+  }
+  function nudge(a) {
+    const since = lastStageAt(a);
+    if (!since) return null;
+    const d = daysAgo(since);
+    const fu = lastFollowup(a);
+    const sentSinceStage = fu && new Date(fu.at) >= new Date(since);
+    const quietDays = sentSinceStage ? daysAgo(fu.at) : d;
+    if (a.status === 'applied' && d >= 30 && quietDays >= 14) return { kind: 'stale', label: `NO RESPONSE ${d}D?` };
+    if (a.status === 'applied' && quietDays >= 7) return { kind: 'no_reply', label: `NO REPLY ${quietDays}D` };
+    if (a.status === 'interviewing') {
+      if (!sentSinceStage && d <= 2) return { kind: 'thank_you', label: 'SEND THANK-YOU' };
+      if (quietDays >= 7) return { kind: 'post_interview', label: `NO UPDATE ${quietDays}D` };
+    }
+    return null;
+  }
+  function defaultFollowupKind(a) {
+    const n = nudge(a);
+    if (n) return n.kind === 'stale' ? 'no_reply' : n.kind;
+    if (a.status === 'offer') return 'offer';
+    if (a.status === 'interviewing') return daysAgo(lastStageAt(a)) <= 2 ? 'thank_you' : 'post_interview';
+    return 'no_reply';
+  }
+
+  // When a card changes stage, suggest the natural next step, unless the user wrote their own.
+  const AUTO_STEPS = new Set(['', 'Submit application', 'Tailor resume and apply', 'Follow up if no reply', 'Send thank-you note', 'Reply to offer', 'Follow up again', 'Check in on decision']);
+  function stepFor(status) {
+    return {
+      saved: { nextStep: 'Tailor resume and apply', nextStepDate: localDate(2) },
+      applied: { nextStep: 'Follow up if no reply', nextStepDate: localDate(7) },
+      interviewing: { nextStep: 'Send thank-you note', nextStepDate: localDate(1) },
+      offer: { nextStep: 'Reply to offer', nextStepDate: localDate(2) },
+      closed: { nextStep: '', nextStepDate: null }
+    }[status];
+  }
+
+  // ── Outcomes: what got interviews, and the opt-in shared dataset ─────────
+  const CLOSE_LABELS = { rejected: 'Rejected', no_response: 'No response', withdrew: 'Withdrew' };
+  const BUCKETS = [[0, 39], [40, 59], [60, 79], [80, 100]];
+  let consent = { known: false, share: false, contributed: 0 };
+  let community = null;
+
+  // Same rule as api/outcomes.js: an interview counts even if it later closed.
+  function outcomeOf(a) {
+    if (reached(a, ['interviewing', 'offer'])) return 'interview';
+    if (a.status === 'closed' && a.closeReason === 'rejected') return 'rejected';
+    if (a.status === 'closed' && a.closeReason === 'no_response') return 'no_response';
+    return null;
+  }
+
+  function bucketRows(rows) {
+    return BUCKETS.map(([lo, hi]) => {
+      const b = rows.find(x => x.range[0] === lo);
+      const rate = b?.interviewRate;
+      return `<div class="ins-row"><span>Fit ${lo}–${hi}</span><div class="ins-bar"><span style="width:${rate ?? 0}%"></span></div><span>${rate === null || rate === undefined ? (b?.n ? `n=${b.n}` : '—') : `${rate}% · n=${b.n}`}</span></div>`;
+    }).join('');
+  }
+
+  function renderInsights() {
+    // Yours: available immediately from your own pipeline.
+    const scored = apps.filter(a => Number.isFinite(a.fitScore) && outcomeOf(a));
+    const mine = BUCKETS.map(([lo, hi]) => {
+      const inB = scored.filter(a => a.fitScore >= lo && a.fitScore <= hi);
+      return { range: [lo, hi], n: inB.length, interviewRate: inB.length ? Math.round(100 * inB.filter(a => outcomeOf(a) === 'interview').length / inB.length) : null };
+    });
+    const mineHTML = scored.length
+      ? `<div class="ins-rows">${bucketRows(mine)}</div>`
+      : `<div class="ins-note">Once your applications get outcomes (an interview, a rejection or no response), you'll see your interview rate by Fit score here.</div>`;
+
+    let commHTML;
+    if (!community) commHTML = `<div class="ins-note">Loading…</div>`;
+    else if (community.error) commHTML = `<div class="ins-note">Community data is unavailable right now.</div>`;
+    else if (!community.unlocked) commHTML = `<div class="ins-note"><b>${community.total}</b> of ${community.minTotal} shared outcomes collected. Community insights unlock at ${community.minTotal}: the interview rate for each Fit range, which shows whether the Fit score actually predicts interviews.</div>`;
+    else commHTML = `<div class="ins-rows">${bucketRows(community.buckets)}</div><div class="ins-note" style="margin-top:8px">${community.total} shared outcomes · overall interview rate <b>${community.overallInterviewRate}%</b></div>`;
+
+    let consentHTML;
+    if (!session) consentHTML = `<div class="consent"><span><a href="/login">Log in</a> to contribute your outcomes anonymously and help Resumatch learn what gets interviews.</span></div>`;
+    else if (!consent.known) consentHTML = '';
+    else consentHTML = `<label class="consent"><input type="checkbox" ${consent.share ? 'checked' : ''} onchange="setConsent(this.checked)">
+      <span>Share my outcomes anonymously to improve Resumatch. Shared: your resume with contact details removed, the job post and its requirements, your scores, and whether you got an interview. Never your name, email or account.
+      ${consent.contributed ? ` You've shared <b>${consent.contributed}</b>. <a href="#" onclick="deleteMine();return false">Delete my shared data</a>.` : ''}</span></label>`;
+
+    document.getElementById('insights').innerHTML = `
+      <div><div class="ins-title">YOUR INTERVIEW RATE BY FIT SCORE</div>${mineHTML}</div>
+      <div><div class="ins-title">ALL RESUMATCH USERS</div>${commHTML}${consentHTML}</div>`;
+  }
+
+  async function loadOutcomeData() {
+    Pipeline.callApi('/api/outcomes', { action: 'insights' }, null)
+      .then(d => { community = d; }).catch(() => { community = { error: true }; }).finally(renderInsights);
+    if (session) {
+      try { consent = { known: true, ...(await Pipeline.callApi('/api/outcomes', { action: 'status' }, session)) }; }
+      catch { consent = { known: false, share: false, contributed: 0 }; }
+      renderInsights();
+    }
+  }
+
+  // Applications are only used to learn once they have an outcome, and only with consent.
+  function contributionPayload(a) {
+    const { id, status, closeReason, activity, fitScore, matchScoreBefore, matchScoreAfter, role, company,
+      jobDescription, analysis, tailoredResume, originalResume, createdAt } = a;
+    return { id, status, closeReason, activity, fitScore, matchScoreBefore, matchScoreAfter, role, company,
+      jobDescription, analysis: { requirements: analysis?.requirements || [] }, tailoredResume, originalResume, createdAt };
+  }
+  async function contribute(a) {
+    if (!a || !session || !consent.share || store.mode !== 'cloud') return;
+    try {
+      const r = await Pipeline.callApi('/api/outcomes', { action: 'contribute', application: contributionPayload(a) }, session);
+      if (r.stored) { const s = await Pipeline.callApi('/api/outcomes', { action: 'status' }, session); consent = { known: true, ...s }; renderInsights(); }
+    } catch (e) { console.warn('outcome contribution failed', e); }
+  }
+  async function setConsent(share) {
+    try {
+      await Pipeline.callApi('/api/outcomes', { action: 'consent', share }, session);
+      consent.share = share;
+      if (share) for (const a of apps.filter(x => outcomeOf(x) || x.closeReason)) await contribute(a); // include past outcomes
+      renderInsights();
+    } catch (e) { alert(e.message); renderInsights(); }
+  }
+  async function deleteMine() {
+    if (!confirm('Delete everything you have shared? Your own pipeline is not affected.')) return;
+    try {
+      const r = await Pipeline.callApi('/api/outcomes', { action: 'delete_mine' }, session);
+      consent.contributed = 0;
+      if (consent.share) { await Pipeline.callApi('/api/outcomes', { action: 'consent', share: false }, session); consent.share = false; }
+      renderInsights();
+      alert(`Deleted ${r.deleted} shared outcome${r.deleted === 1 ? '' : 's'} and turned sharing off.`);
+    } catch (e) { alert(e.message); }
+  }
+  async function changeReason() {
+    const a = apps.find(x => x.id === openId);
+    if (!a) return;
+    const reason = await askReason();
+    if (!reason || reason === a.closeReason) return;
+    const saved = await store.update(a.id, { closeReason: reason });
+    replaceApp(saved);
+    contribute(saved);
+  }
+
+  // ── Render ──────────────────────────────────────────────────────────────
+  function renderAll() { renderStats(); renderInsights(); renderDue(); renderBoard(); if (openId) renderDrawer(); }
+
+  function reached(a, stages) {
+    return stages.includes(a.status) || (a.activity || []).some(e => stages.includes(e.to));
+  }
+
+  function renderStats() {
+    const active = apps.filter(a => a.status !== 'closed');
+    const applied = apps.filter(a => reached(a, ['applied', 'interviewing', 'offer']));
+    const responded = apps.filter(a => reached(a, ['interviewing', 'offer']));
+    const lifts = apps.filter(a => Number.isFinite(a.matchScoreBefore) && Number.isFinite(a.matchScoreAfter)).map(a => a.matchScoreAfter - a.matchScoreBefore);
+    const avgLift = lifts.length ? Math.round(lifts.reduce((x, y) => x + y, 0) / lifts.length) : null;
+    const due = apps.filter(a => a.status !== 'closed' && ((a.nextStepDate && a.nextStepDate <= todayStr()) || nudge(a))).length;
+    const stat = (label, val, sub, color) => `<div class="stat"><div class="stat-label">${label}</div><div class="stat-val" style="color:${color || 'var(--text)'}">${val}</div><div class="stat-sub">${sub}</div></div>`;
+    document.getElementById('stats').innerHTML =
+      stat('ACTIVE', active.length, `${apps.length} total tracked`) +
+      stat('INTERVIEW RATE', applied.length ? Math.round(responded.length / applied.length * 100) + '%' : '—', `${responded.length} of ${applied.length} applied`, 'var(--violet)') +
+      stat('AVG KEYWORD LIFT', avgLift === null ? '—' : (avgLift >= 0 ? '+' : '') + avgLift, lifts.length ? `ATS keyword match, across ${lifts.length} tailored resume${lifts.length > 1 ? 's' : ''}` : 'tailor a resume to see this', 'var(--accent)') +
+      stat('FOLLOW-UPS DUE', due, due ? 'due today or overdue' : 'all caught up', due ? 'var(--danger)' : 'var(--text)');
+  }
+
+  function renderDue() {
+    const nudged = apps.filter(a => a.status !== 'closed' && nudge(a));
+    const items = apps.filter(a => a.status !== 'closed' && a.nextStep && a.nextStepDate && !nudge(a))
+      .sort((x, y) => x.nextStepDate.localeCompare(y.nextStepDate)).slice(0, 8);
+    const KIND_TEXT = { no_reply: 'Send a follow-up email', thank_you: 'Send a thank-you note', post_interview: 'Check in on the decision' };
+    document.getElementById('due').classList.toggle('show', items.length + nudged.length > 0);
+    document.getElementById('due-list').innerHTML =
+      nudged.map(a => { const n = nudge(a); return `<div class="due-item" onclick="openDrawer('${a.id}','followup')"><div class="when overdue">${n.label} · ${esc(a.company || 'Untitled')}</div><div class="what">${KIND_TEXT[n.kind]} →</div></div>`; }).join('') +
+      items.map(a => {
+        const d = dueInfo(a.nextStepDate);
+        return `<div class="due-item" onclick="openDrawer('${a.id}')"><div class="when ${d.cls}">${d.label} · ${esc(a.company || 'Untitled')}</div><div class="what">${esc(a.nextStep)}</div></div>`;
+      }).join('');
+  }
+
+  function cardHTML(a) {
+    const d = dueInfo(a.nextStepDate);
+    const hasScores = Number.isFinite(a.matchScoreBefore) && Number.isFinite(a.matchScoreAfter);
+    return `<div class="card" draggable="true" data-id="${a.id}">
+      <div class="card-company">${esc(a.company || 'Untitled company')}</div>
+      <div class="card-role">${esc(a.role || 'Role not set')}</div>
+      <div class="card-meta">
+        ${Number.isFinite(a.fitScore) ? `<span class="chip fit" title="Fit score">FIT ${a.fitScore}</span>${hasScores ? `<span class="chip kw" title="ATS keyword match, original → tailored">KW ${a.matchScoreBefore}→${a.matchScoreAfter}</span>` : ''}`
+          : hasScores ? `<span class="chip score">${a.matchScoreBefore}→${a.matchScoreAfter}</span>` : Number.isFinite(a.matchScoreAfter) ? `<span class="chip score">${a.matchScoreAfter}</span>` : ''}
+        ${a.status === 'closed' && a.closeReason ? `<span class="chip closed ${a.closeReason}">${CLOSE_LABELS[a.closeReason]}</span>` : ''}
+        ${a.tailoredResume ? '<span class="chip doc">RESUME</span>' : ''}
+        ${a.coverLetter ? '<span class="chip doc">LETTER</span>' : ''}
+        ${nudge(a) ? `<span class="chip nudge">${nudge(a).label}</span>` : ''}
+        <span class="card-age" title="Time in this stage">${stageSince(a)}</span>
+      </div>
+      ${a.nextStep && a.status !== 'closed' ? `<div class="card-next">${d ? `<span class="date ${d.cls}">${d.label}</span>` : ''}<span class="txt">${esc(a.nextStep)}</span></div>` : ''}
+    </div>`;
+  }
+
+  function renderBoard() {
+    const board = document.getElementById('board');
+    board.innerHTML = STATUSES.map(s => {
+      const list = apps.filter(a => a.status === s).sort((x, y) => x.position - y.position);
+      const empty = s === 'saved' ? 'Tailor a resume and hit<br>“Save to pipeline”' : 'Drag cards here';
+      return `<section class="col" data-status="${s}">
+        <div class="col-head"><span class="col-dot" style="background:${COLORS[s]}"></span><span class="col-name">${STATUS_LABELS[s].toUpperCase()}</span><span class="col-count">${list.length}</span></div>
+        <div class="col-body">${list.length ? list.map(cardHTML).join('') : `<div class="col-empty">${empty}</div>`}</div>
+      </section>`;
+    }).join('');
+    bindDnD();
+  }
+
+  function flashCard(id) {
+    const el = document.querySelector(`.card[data-id="${CSS.escape(id)}"]`);
+    if (!el) return;
+    el.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
+    el.classList.add('flash');
+  }
+
+  // ── Drag and drop (mouse); touch users change stage from the drawer ─────
+  let marker = null;
+  function bindDnD() {
+    document.querySelectorAll('.card').forEach(card => {
+      card.addEventListener('click', () => openDrawer(card.dataset.id));
+      card.addEventListener('dragstart', e => { dragId = card.dataset.id; card.classList.add('dragging'); e.dataTransfer.effectAllowed = 'move'; e.dataTransfer.setData('text/plain', dragId); });
+      card.addEventListener('dragend', () => { card.classList.remove('dragging'); clearMarker(); dragId = null; });
+    });
+    document.querySelectorAll('.col').forEach(col => {
+      col.addEventListener('dragover', e => {
+        if (!dragId) return;
+        e.preventDefault();
+        col.classList.add('drop');
+        const body = col.querySelector('.col-body');
+        const after = cardAfter(body, e.clientY);
+        if (!marker) { marker = document.createElement('div'); marker.className = 'drop-marker'; }
+        after ? body.insertBefore(marker, after) : body.appendChild(marker);
+      });
+      col.addEventListener('dragleave', e => { if (!col.contains(e.relatedTarget)) { col.classList.remove('drop'); } });
+      col.addEventListener('drop', async e => {
+        e.preventDefault();
+        col.classList.remove('drop');
+        const id = dragId || e.dataTransfer.getData('text/plain');
+        const body = col.querySelector('.col-body');
+        const after = cardAfter(body, e.clientY);
+        clearMarker();
+        if (id) await dropCard(id, col.dataset.status, after?.dataset.id || null);
+      });
+    });
+  }
+  function clearMarker() { marker?.remove(); document.querySelectorAll('.col.drop').forEach(c => c.classList.remove('drop')); }
+  function cardAfter(body, y) {
+    const cards = [...body.querySelectorAll('.card:not(.dragging)')];
+    return cards.find(c => { const r = c.getBoundingClientRect(); return y < r.top + r.height / 2; }) || null;
+  }
+
+  // Position = midpoint between neighbours, so a reorder only updates one row.
+  async function dropCard(id, status, beforeId, closeReason) {
+    const app = apps.find(a => a.id === id);
+    if (!app) return;
+    if (status === 'closed' && app.status !== 'closed' && !closeReason) {
+      closeReason = await askReason();
+      if (!closeReason) return;
+    }
+    const col = apps.filter(a => a.status === status && a.id !== id).sort((x, y) => x.position - y.position);
+    const idx = beforeId ? col.findIndex(a => a.id === beforeId) : col.length;
+    const prev = col[idx - 1]?.position, next = col[idx]?.position;
+    const position = prev === undefined && next === undefined ? Date.now()
+      : prev === undefined ? next - 1000 : next === undefined ? prev + 1000 : (prev + next) / 2;
+    if (app.status === status && app.position === position) return;
+    const before = { ...app };
+    const patch = { status, position };
+    if (status === 'closed' && closeReason) patch.closeReason = closeReason;
+    if (status !== 'closed' && app.closeReason) patch.closeReason = null;
+    if (app.status !== status) {
+      patch.activity = [...app.activity, { at: new Date().toISOString(), type: 'stage', from: app.status, to: status }];
+      if (AUTO_STEPS.has(app.nextStep || '')) Object.assign(patch, stepFor(status));
+    }
+    // Optimistic update, then persist
+    Object.assign(app, patch);
+    renderAll();
+    try {
+      const saved = await store.update(app.id, patch);
+      replaceApp(saved);
+      if (before.status !== status || before.closeReason !== saved?.closeReason) contribute(saved);
+    } catch (e) { Object.assign(app, before); renderAll(); console.error(e); }
+    renderMode();
+  }
+
+  let reasonResolve = null;
+  function askReason() {
+    document.getElementById('reason-modal').classList.add('show');
+    return new Promise(r => { reasonResolve = r; });
+  }
+  function pickReason(reason) {
+    document.getElementById('reason-modal').classList.remove('show');
+    reasonResolve?.(reason); reasonResolve = null;
+  }
+  async function markNoResponse() {
+    const a = apps.find(x => x.id === openId);
+    if (a) await dropCard(a.id, 'closed', null, 'no_response');
+  }
+
+  function replaceApp(saved) {
+    if (!saved) return;
+    const i = apps.findIndex(a => a.id === saved.id);
+    if (i >= 0) apps[i] = saved; else apps.push(saved);
+    renderAll();
+  }
+
+  // ── Drawer ──────────────────────────────────────────────────────────────
+  let drawerTab = 'resume';
+  function openDrawer(id, tab) {
+    openId = id;
+    drawerTab = tab || (nudge(apps.find(a => a.id === id) || {}) ? 'followup' : 'resume');
+    renderDrawer();
+    document.getElementById('drawer').classList.add('show');
+    document.getElementById('scrim').classList.add('show');
+    history.replaceState({}, '', `/pipeline?open=${encodeURIComponent(id)}`);
+  }
+  function closeDrawer() {
+    openId = null;
+    document.getElementById('drawer').classList.remove('show');
+    document.getElementById('scrim').classList.remove('show');
+    history.replaceState({}, '', '/pipeline');
+  }
+  document.addEventListener('keydown', e => {
+    if (e.key !== 'Escape') return;
+    if (reasonResolve) { pickReason(null); return; } // cancel the close-reason dialog first
+    closeDrawer(); closeAdd();
+  });
+
+  function renderDrawer() {
+    const a = apps.find(x => x.id === openId);
+    const el = document.getElementById('drawer');
+    if (!a) { closeDrawer(); return; }
+    const active = document.activeElement?.id;
+    const curIdx = STATUSES.indexOf(a.status);
+    const hasBefore = Number.isFinite(a.matchScoreBefore), hasAfter = Number.isFinite(a.matchScoreAfter);
+    const an = a.analysis || {};
+    el.innerHTML = `
+      <div class="d-head">
+        <div class="d-top">
+          <div class="d-titles">
+            <input class="inline-input d-company" id="f-company" value="${esc(a.company)}" placeholder="Company" maxlength="120" onchange="saveField('company', this.value)">
+            <input class="inline-input d-role" id="f-role" value="${esc(a.role)}" placeholder="Role" maxlength="160" onchange="saveField('role', this.value)">
+          </div>
+          <button class="d-close" onclick="closeDrawer()" aria-label="Close">×</button>
+        </div>
+        <div class="stage-bar">${STATUSES.map((s, i) => {
+          const cls = i === curIdx ? 'current' : (s !== 'closed' && i < curIdx ? 'done' : '');
+          const style = i === curIdx ? `background:${COLORS[s]};border-color:${COLORS[s]}` : '';
+          return `<button class="stage ${cls}" style="${style}" onclick="setStage('${s}')">${STATUS_LABELS[s].toUpperCase()}</button>`;
+        }).join('')}</div>
+      </div>
+      <div class="d-scroll">
+        ${nudge(a)?.kind === 'stale' ? `<div class="stale-bar"><span>No reply in ${daysAgo(lastStageAt(a))} days. Mark it as no response? That closes it and records the outcome.</span><button class="btn-ghost" onclick="markNoResponse()">MARK NO RESPONSE</button></div>` : ''}
+        ${a.status === 'closed' ? `<div class="stale-bar" style="color:var(--c-bbb);border-color:var(--border);background:var(--inset-2)"><span>Closed: <b>${CLOSE_LABELS[a.closeReason] || 'reason not set'}</b></span><button class="btn-ghost" onclick="changeReason()">CHANGE</button></div>` : ''}
+        ${hasBefore || hasAfter || an.total ? `<div class="score-strip">
+          ${Number.isFinite(a.fitScore) ? `<div class="score-box"><div class="field-label">FIT SCORE</div><div class="v"><span style="color:var(--accent)">${a.fitScore}</span></div></div>` : ''}
+          ${hasAfter ? `<div class="score-box"><div class="field-label">${Number.isFinite(a.fitScore) ? 'ATS KEYWORDS' : 'MATCH SCORE'}</div><div class="v">${hasBefore ? `<span class="was">${a.matchScoreBefore}${Number.isFinite(a.fitScore) ? '%' : ''} →</span>` : ''}<span style="color:var(--accent)">${a.matchScoreAfter}${Number.isFinite(a.fitScore) ? '%' : ''}</span></div></div>` : ''}
+          ${an.total ? `<div class="score-box"><div class="field-label">KEYWORD COVERAGE</div><div class="v"><span class="was">${an.coverageBefore} →</span>${an.coverageAfter}<span style="font-size:14px;color:var(--muted)"> / ${an.total}</span></div></div>` : ''}
+        </div>` : ''}
+        <div class="d-grid">
+          <div><label class="field-label" for="f-next">NEXT STEP</label><input class="input" id="f-next" value="${esc(a.nextStep)}" placeholder="e.g. Follow up with recruiter" onchange="saveField('nextStep', this.value)"></div>
+          <div><label class="field-label" for="f-date">DUE</label><input class="input" type="date" id="f-date" value="${a.nextStepDate || ''}" onchange="saveField('nextStepDate', this.value || null)"></div>
+          <div style="grid-column:1/-1"><label class="field-label" for="f-url">JOB LINK</label><input class="input" id="f-url" type="url" value="${esc(a.jobUrl)}" placeholder="https://" onchange="saveField('jobUrl', this.value)"></div>
+          <div style="grid-column:1/-1"><label class="field-label" for="f-notes">NOTES</label><textarea class="input" id="f-notes" placeholder="Recruiter name, referral, what they asked in the screen…" onchange="saveField('notes', this.value)">${esc(a.notes)}</textarea></div>
+        </div>
+        <div class="d-tabs">${[['resume', 'RESUME'], ['changes', 'CHANGES'], ['truth', `TRUTH CHECK${a.truthCheck?.flags?.length ? ' (' + a.truthCheck.flags.length + ')' : ''}`], ['gaps', 'GAPS'], ['letter', 'COVER LETTER'], ['followup', `FOLLOW-UP${nudge(a) ? ' •' : ''}`], ['interview', 'INTERVIEW PREP'], ['job', 'JOB POST'], ['activity', 'ACTIVITY']]
+          .map(([k, l]) => `<button class="d-tab ${drawerTab === k ? 'active' : ''}" onclick="drawerTab='${k}';renderDrawer()">${l}</button>`).join('')}</div>
+        <div class="d-pane">${paneHTML(a)}</div>
+      </div>
+      <div class="d-foot">
+        <a class="btn-primary" href="/cover?app=${encodeURIComponent(a.id)}">${a.coverLetter ? 'REWRITE' : 'WRITE'} COVER LETTER</a>
+        ${a.jobUrl ? `<a class="btn-ghost" href="${esc(safeUrl(a.jobUrl))}" target="_blank" rel="noopener">OPEN JOB POST ↗</a>` : ''}
+        <span class="saved-hint" id="saved-hint">✓ saved</span>
+        <span class="spacer"></span>
+        <button class="btn-danger" onclick="deleteApp()">DELETE</button>
+      </div>`;
+    if (active && document.getElementById(active)) document.getElementById(active).focus();
+  }
+
+  function safeUrl(u) { try { const x = new URL(u); return /^https?:$/.test(x.protocol) ? x.href : '#'; } catch { return '#'; } }
+
+  function paneHTML(a) {
+    const copyBtn = (field, label) => `<button class="btn-ghost" onclick="copyField('${field}', this)">COPY ${label}</button>`;
+    switch (drawerTab) {
+      case 'resume':
+        return a.tailoredResume
+          ? `<div class="pane-actions">${copyBtn('tailoredResume', 'RESUME')}</div><pre>${esc(a.tailoredResume)}</pre>`
+          : `<div class="empty-pane">No tailored resume yet. <a href="/app">Tailor one for this role →</a></div>`;
+      case 'changes': {
+        if (!a.tailoredResume || !a.originalResume) return `<div class="empty-pane">Tracked changes appear once a resume is tailored for this role.</div>`;
+        return ResumeDiff.renderDiffHTML(ResumeDiff.diffResumes(a.originalResume, a.tailoredResume, a.changes, a.truthCheck?.flags));
+      }
+      case 'gaps': {
+        const an = a.analysis || {};
+        if (!an.requirements?.length) return `<div class="empty-pane">No gap analysis saved for this role.</div>`;
+        return `${an.summary ? `<div class="empty-pane" style="text-align:left;border-style:solid;border-color:rgba(var(--warn-rgb),0.25);color:var(--c-e8d9a0);margin-bottom:12px;">${esc(an.summary)}</div>` : ''}
+          <div class="gap-line" style="font-size:11px;letter-spacing:2px;color:var(--muted)"><div>REQUIREMENT</div><div>${an.requirements.some(q => q.level) ? 'FIT' : 'BEFORE'}</div><div>${an.requirements.some(q => q.level) ? 'KW' : 'AFTER'}</div></div>
+          ${an.requirements.map(q => `<div class="gap-line"><div class="s">${esc(q.skill)}<small>${q.importance}${q.supported ? '' : ' · no evidence in resume'}${q.evidence ? ` · “${esc(q.evidence)}”` : ''}</small></div>${q.level
+            ? `<div class="${q.level === 'strong' ? 'yes' : q.level === 'partial' ? '' : 'no'}" style="${q.level === 'partial' ? 'color:var(--warn)' : ''}">${q.level}</div><div class="${q.inTailored ? 'yes' : 'no'}">${q.inOriginal ? '✓' : '✗'}→${q.inTailored ? '✓' : '✗'}</div>`
+            : `<div class="${q.inOriginal ? 'yes' : 'no'}">${q.inOriginal ? '✓' : '✗'}</div><div class="${q.inTailored ? 'yes' : 'no'}">${q.inTailored ? '✓' : '✗'}</div>`}</div>`).join('')}`;
+      }
+      case 'letter':
+        return a.coverLetter
+          ? `<div class="pane-actions">${copyBtn('coverLetter', 'LETTER')}</div><pre>${esc(a.coverLetter)}</pre>`
+          : `<div class="empty-pane">No cover letter yet. <a href="/cover?app=${encodeURIComponent(a.id)}">Write one from this card's resume and job post →</a></div>`;
+      case 'truth': return truthPane(a);
+      case 'followup': return followupPane(a);
+      case 'interview': return interviewPane(a);
+      case 'job':
+        return a.jobDescription ? `<pre>${esc(a.jobDescription)}</pre>` : `<div class="empty-pane">No job description saved.</div>`;
+      case 'activity': {
+        const items = [...(a.activity || [])].reverse();
+        if (!items.length) return `<div class="empty-pane">No activity yet.</div>`;
+        return `<div class="timeline">${items.map(e => `<div class="tl-item ${e.type === 'stage' ? 'stage' : ''}"><time>${fmtTime(e.at)}</time>${
+          e.type === 'created' ? `Added to <b>${STATUS_LABELS[e.status] || 'Saved'}</b>`
+          : e.type === 'stage' ? `Moved from ${STATUS_LABELS[e.from] || e.from} to <b>${STATUS_LABELS[e.to] || e.to}</b>${e.to === 'closed' && a.closeReason ? ` (${CLOSE_LABELS[a.closeReason].toLowerCase()})` : ''}`
+          : e.type === 'cover_letter' ? 'Cover letter attached'
+          : e.type === 'followup_sent' ? `Sent ${esc(KIND_LABELS[e.kind] || 'follow-up').toLowerCase()}`
+          : e.type === 'interview_prep' ? 'Interview prep generated'
+          : e.type === 'truth_check' ? 'Truth check run' : esc(e.type)}</div>`).join('')}</div>`;
+      }
+    }
+    return '';
+  }
+
+  // ── AI panes ────────────────────────────────────────────────────────────
+  const KIND_LABELS = { no_reply: 'Follow-up (no reply)', thank_you: 'Thank-you note', post_interview: 'Post-interview check-in', offer: 'Offer reply' };
+  const key = (a, task) => `${a.id}:${task}`;
+  const spinner = (label) => `<span class="spin"></span>${label}`;
+  const errLine = (a, task) => taskErrors[key(a, task)] ? `<div class="ai-err">${esc(taskErrors[key(a, task)])}</div>` : '';
+
+  async function runTask(task, fn) {
+    const a = apps.find(x => x.id === openId);
+    if (!a || busy[key(a, task)]) return;
+    busy[key(a, task)] = true; delete taskErrors[key(a, task)];
+    renderDrawer();
+    try { await fn(a); }
+    catch (e) { taskErrors[key(a, task)] = e.message; console.error(e); }
+    finally { delete busy[key(a, task)]; renderMode(); if (openId === a.id) renderDrawer(); }
+  }
+
+  function truthPane(a) {
+    const t = a.truthCheck;
+    if (!a.tailoredResume || !a.originalResume) return `<div class="empty-pane">The truth check runs on tailored resumes. <a href="/app">Tailor one for this role →</a></div>`;
+    const running = busy[key(a, 'truth')];
+    const btn = `<button class="btn-ghost" onclick="runTruth()" ${running ? 'disabled' : ''}>${running ? spinner('CHECKING…') : (t ? 'RE-RUN CHECK' : 'RUN TRUTH CHECK')}</button>`;
+    if (!t) return `<div class="ai-box"><div class="ai-hint" style="margin-bottom:12px">Compares every claim in the tailored resume with your original, and flags any number that doesn't appear in it.</div>${btn}${errLine(a, 'truth')}</div>`;
+    const flags = t.flags || [];
+    return `<div class="ai-row"><span class="ai-hint">${flags.length ? `<b style="color:var(--danger)">${flags.length} claim${flags.length > 1 ? 's' : ''}</b> to verify` : '<b style="color:var(--accent)">Every claim is backed by your original resume.</b>'}${t.checked ? ` · ${t.checked} checked` : ''}</span><span style="margin-left:auto">${btn}</span></div>${errLine(a, 'truth')}` +
+      flags.map(f => `<div class="flag ${f.verdict}"><div class="c">“${esc(f.claim)}”</div><div class="i">${esc(f.issue)}</div>${f.fix ? `<div class="f">Honest version: ${esc(f.fix)}</div>` : ''}</div>`).join('');
+  }
+  function runTruth() {
+    runTask('truth', async (a) => {
+      const truthCheck = await Pipeline.callApi('/api/assist', { action: 'verify', original: a.originalResume, tailored: a.tailoredResume }, session);
+      replaceApp(await store.update(a.id, { truthCheck, activity: [...a.activity, { at: new Date().toISOString(), type: 'truth_check' }] }));
+    });
+  }
+
+  function followupPane(a) {
+    const f = a.followup;
+    const running = busy[key(a, 'followup')];
+    const kind = fuKind[a.id] || f?.kind || defaultFollowupKind(a);
+    const n = nudge(a);
+    const last = lastFollowup(a);
+    const head = `<div class="ai-row">
+        <select class="input" id="fu-kind" onchange="fuKind[openId] = this.value">${Object.entries(KIND_LABELS).map(([k, l]) => `<option value="${k}" ${k === kind ? 'selected' : ''}>${l}</option>`).join('')}</select>
+        <button class="btn-primary" onclick="genFollowup()" ${running ? 'disabled' : ''}>${running ? spinner('WRITING…') : (f ? 'REWRITE' : 'DRAFT EMAIL')}</button>
+      </div>
+      <div class="ai-hint" style="margin-bottom:14px">${n ? `<span style="color:var(--danger)">${n.label}.</span> ` : ''}${last ? `Last follow-up sent ${fmtTime(last.at)}.` : 'No follow-up sent yet.'} Uses this card's resume, job post and your notes (add the recruiter's name there).</div>${errLine(a, 'followup')}`;
+    if (!f) return head;
+    const mailto = `mailto:?subject=${encodeURIComponent(f.subject)}&body=${encodeURIComponent(f.body)}`;
+    return head + `<input class="input email-subject" id="fu-subject" value="${esc(f.subject)}" onchange="saveFollowupEdit()">
+      <textarea class="input email-body" id="fu-body" onchange="saveFollowupEdit()">${esc(f.body)}</textarea>
+      <div class="pane-actions" style="margin-top:12px">
+        <button class="btn-ghost" onclick="copyEmail(this)">COPY EMAIL</button>
+        <a class="btn-ghost" href="${mailto}">OPEN IN EMAIL ↗</a>
+        <button class="btn-primary" onclick="markSent()">MARK AS SENT</button>
+      </div>`;
+  }
+  function genFollowup() {
+    const kind = document.getElementById('fu-kind').value;
+    runTask('followup', async (a) => {
+      const followup = await Pipeline.callApi('/api/assist', {
+        action: 'followup', kind, company: a.company, role: a.role, notes: a.notes,
+        daysSince: daysAgo(lastFollowup(a)?.at || lastStageAt(a)),
+        resume: a.tailoredResume || a.originalResume, jobDescription: a.jobDescription
+      }, session);
+      replaceApp(await store.update(a.id, { followup }));
+    });
+  }
+  async function saveFollowupEdit() {
+    const a = apps.find(x => x.id === openId);
+    if (!a?.followup) return;
+    const followup = { ...a.followup, subject: document.getElementById('fu-subject').value, body: document.getElementById('fu-body').value };
+    a.followup = followup;
+    replaceApp(await store.update(a.id, { followup }));
+  }
+  function copyEmail(btn) {
+    const subject = document.getElementById('fu-subject').value, body = document.getElementById('fu-body').value;
+    navigator.clipboard.writeText(`Subject: ${subject}\n\n${body}`);
+    btn.textContent = '✓ COPIED'; setTimeout(() => btn.textContent = 'COPY EMAIL', 1500);
+  }
+  async function markSent() {
+    const a = apps.find(x => x.id === openId);
+    if (!a) return;
+    const kind = a.followup?.kind || document.getElementById('fu-kind')?.value || 'no_reply';
+    const next = kind === 'offer' ? { nextStep: 'Decide on offer', nextStepDate: localDate(3) }
+      : kind === 'thank_you' ? { nextStep: 'Check in on decision', nextStepDate: localDate(7) }
+      : { nextStep: 'Follow up again', nextStepDate: localDate(7) };
+    replaceApp(await store.update(a.id, { ...next, activity: [...a.activity, { at: new Date().toISOString(), type: 'followup_sent', kind }] }));
+    flashSaved(`Logged. Next nudge ${dueInfo(next.nextStepDate).label.toLowerCase()}.`);
+  }
+  function flashSaved(text) {
+    const hint = document.getElementById('saved-hint');
+    if (!hint) return;
+    hint.textContent = '✓ ' + (text || 'saved'); hint.classList.add('show');
+    clearTimeout(flashSaved._t); flashSaved._t = setTimeout(() => { hint.classList.remove('show'); hint.textContent = '✓ saved'; }, 2500);
+  }
+
+  function interviewPane(a) {
+    const p = a.interviewPrep;
+    const running = busy[key(a, 'interview')];
+    const resume = a.tailoredResume || a.originalResume;
+    if (!resume || !a.jobDescription) return `<div class="empty-pane">Interview prep needs this card's resume and job post. <a href="/app">Tailor a resume for this role →</a></div>`;
+    const btn = `<button class="${p ? 'btn-ghost' : 'btn-primary'}" onclick="genInterview()" ${running ? 'disabled' : ''}>${running ? spinner('PREPARING… (~30S)') : (p ? 'REGENERATE' : 'GENERATE INTERVIEW PREP')}</button>`;
+    if (!p) return `<div class="ai-box"><div class="ai-hint" style="margin-bottom:12px">Predicts the questions you're most likely to get for this role and drafts STAR answers from your real experience, plus smart questions to ask them.</div>${btn}${errLine(a, 'interview')}</div>`;
+    const L = { situation: 'S', task: 'T', action: 'A', result: 'R' };
+    return `<div class="ai-row"><span class="ai-hint">${p.questions.length} likely questions · tap one to see a STAR answer draft</span><span style="margin-left:auto">${btn}</span></div>${errLine(a, 'interview')}` +
+      p.questions.map((q, i) => `<details class="q" ${i === 0 ? 'open' : ''}>
+        <summary><span class="q-type ${q.type}">${q.type.toUpperCase()}</span><span>${esc(q.q)}</span></summary>
+        <div class="q-body">
+          ${q.why ? `<div class="q-why">${esc(q.why)}</div>` : ''}
+          <div class="star">${Object.entries(L).map(([k, l]) => q.star[k] ? `<b>${l}</b><div>${esc(q.star[k])}</div>` : '').join('')}</div>
+          ${q.tip ? `<div class="q-tip">Tip: ${esc(q.tip)}</div>` : ''}
+        </div></details>`).join('') +
+      (p.askThem?.length ? `<div class="field-label" style="margin-top:18px">QUESTIONS TO ASK THEM</div><ol class="ask-list">${p.askThem.map(x => `<li>${esc(x)}</li>`).join('')}</ol>` : '');
+  }
+  function genInterview() {
+    runTask('interview', async (a) => {
+      const interviewPrep = await Pipeline.callApi('/api/assist', {
+        action: 'interview', company: a.company, role: a.role, resume: a.tailoredResume || a.originalResume, jobDescription: a.jobDescription
+      }, session);
+      replaceApp(await store.update(a.id, { interviewPrep, activity: [...a.activity, { at: new Date().toISOString(), type: 'interview_prep' }] }));
+    });
+  }
+
+  async function saveField(field, value) {
+    const a = apps.find(x => x.id === openId);
+    if (!a || a[field] === value) return;
+    a[field] = value;
+    renderStats(); renderDue(); renderBoard();
+    try {
+      replaceApp(await store.update(a.id, { [field]: value }));
+      const hint = document.getElementById('saved-hint');
+      if (hint) { hint.classList.add('show'); setTimeout(() => hint.classList.remove('show'), 1200); }
+    } catch (e) { console.error(e); alert('Could not save that change.'); }
+    renderMode();
+  }
+
+  async function setStage(status) {
+    const a = apps.find(x => x.id === openId);
+    if (!a || a.status === status) return;
+    await dropCard(a.id, status, null);
+  }
+
+  function copyField(field, btn) {
+    const a = apps.find(x => x.id === openId);
+    if (!a) return;
+    navigator.clipboard.writeText(a[field] || '');
+    const t = btn.textContent; btn.textContent = '✓ COPIED'; setTimeout(() => btn.textContent = t, 1500);
+  }
+
+  async function deleteApp() {
+    const a = apps.find(x => x.id === openId);
+    if (!a || !confirm(`Delete ${a.company || 'this application'}? This can't be undone.`)) return;
+    await store.remove(a.id);
+    apps = apps.filter(x => x.id !== a.id);
+    closeDrawer();
+    renderAll();
+  }
+
+  // ── Add modal ───────────────────────────────────────────────────────────
+  function openAdd() { addImported = null; document.getElementById('add-url-status').textContent = ''; document.getElementById('add-modal').classList.add('show'); document.getElementById('add-url').focus(); }
+  async function importIntoAdd() {
+    const url = document.getElementById('add-url').value.trim();
+    const status = document.getElementById('add-url-status');
+    if (!url || addImported?.requested === url) return;
+    addImported = { requested: url };
+    status.className = 'modal-status busy'; status.textContent = 'Reading the job posting…';
+    try {
+      const job = await Pipeline.callApi('/api/fetch-job', { url }, session);
+      if (addImported?.requested !== url) return;
+      addImported = { requested: url, ...job };
+      const company = document.getElementById('add-company'), role = document.getElementById('add-role');
+      if (!company.value && job.company) company.value = job.company;
+      if (!role.value && job.title) role.value = job.title;
+      status.className = 'modal-status ok'; status.textContent = `✓ Imported the job description${job.company ? ' from ' + job.company : ''}.`;
+    } catch (e) {
+      status.className = 'modal-status err'; status.textContent = e.message + ' You can still add it manually.';
+    }
+  }
+  function closeAdd() { document.getElementById('add-modal').classList.remove('show'); }
+  async function submitAdd(e) {
+    e.preventDefault();
+    const status = document.getElementById('add-status').value;
+    const urlVal = document.getElementById('add-url').value.trim();
+    const imported = addImported?.requested === urlVal && addImported.description ? addImported : null;
+    const created = await store.create({
+      jobDescription: imported ? [imported.title, imported.company, imported.location].filter(Boolean).join('\n') + '\n\n' + imported.description : '',
+      company: document.getElementById('add-company').value.trim(),
+      role: document.getElementById('add-role').value.trim(),
+      jobUrl: document.getElementById('add-url').value.trim(),
+      status,
+      ...stepFor(status)
+    });
+    e.target.reset();
+    closeAdd();
+    apps.push(created);
+    renderAll();
+    renderMode();
+    flashCard(created.id);
+  }
+</script>
+</body>
+</html>

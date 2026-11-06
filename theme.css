@@ -1,0 +1,91 @@
+/* Shared theme for the app pages (tailor, cover letter, pipeline).
+   Dark is the original Resumatch look and the default. [data-theme="light"] on <html>
+   (set by theme.js when the user picks it) swaps in the light palette. */
+:root {
+  --font-ui: 'DM Mono', monospace;
+  --font-display: 'Syne', sans-serif;
+  --font-mono: 'DM Mono', monospace;
+
+  /* Original Resumatch palette */
+  --bg: #08080f;          --bg-rgb: 8, 8, 15;
+  --surface: #0f0f1a;     --surface-2: #141422;
+  --border: #1e1e30;      --border-light: #2a2a3e;
+  --text: #e0e0f0;        --muted: #9999aa;
+  --fg-rgb: 255, 255, 255;
+  --accent: #00e5a0;      --accent-rgb: 0, 229, 160;    --on-accent: #08080f;
+  --warn: #f5c842;        --warn-rgb: 245, 200, 66;
+  --danger: #ff6b6b;      --danger-rgb: 255, 107, 107;
+  --blue: #7cc4ff;        --blue-rgb: 124, 196, 255;
+  --violet: #b69cff;      --violet-rgb: 182, 156, 255;
+  --nav-bg: rgba(8, 8, 15, 0.85);
+  --col-bg: rgba(15, 15, 26, 0.6);
+  --inset-2: rgba(0, 0, 0, 0.2);  --inset-25: rgba(0, 0, 0, 0.25);  --inset-3: rgba(0, 0, 0, 0.3);
+  /* Original text shades, one variable per value the pages used */
+  --c-fff: #fff;       --c-e8e8f0: #e8e8f0;
+  --c-ccc: #ccc;       --c-bbb: #bbb;       --c-cfe: #cfe;       --c-cde6ff: #cde6ff;  --c-f3e2a8: #f3e2a8;  --c-e8d9a0: #e8d9a0;
+  --c-aaa: #aaa;       --c-999: #999;       --c-9999aa: #9999aa; --c-9a9ab0: #9a9ab0;  --c-888: #888;        --c-777: #777;
+  --c-666: #666;       --c-555: #555;       --c-333: #333;
+  --c-ff9090: #ff9090; --c-ffb0b0: #ffb0b0;
+  --noise-opacity: 1;
+  color-scheme: dark;
+}
+
+:root[data-theme="light"] {
+  --bg: #f5f6f8;          --bg-rgb: 245, 246, 248;
+  --surface: #ffffff;     --surface-2: #f7f8fa;
+  --border: #e2e5eb;      --border-light: #cfd4dd;
+  --text: #11141b;        --muted: #5a6170;
+  --fg-rgb: 0, 0, 0;
+  --accent: #059669;      --accent-rgb: 5, 150, 105;    --on-accent: #ffffff;
+  --warn: #a16207;        --warn-rgb: 202, 138, 4;
+  --danger: #dc2626;      --danger-rgb: 220, 38, 38;
+  --blue: #2563eb;        --blue-rgb: 37, 99, 235;
+  --violet: #7c3aed;      --violet-rgb: 124, 58, 237;
+  --nav-bg: rgba(245, 246, 248, 0.88);
+  --col-bg: #eceef2;
+  --inset-2: #f7f8fa;  --inset-25: #f7f8fa;  --inset-3: #f7f8fa;
+  --c-fff: #11141b;    --c-e8e8f0: #11141b;
+  --c-ccc: #363c48;    --c-bbb: #363c48;    --c-cfe: #1f3d33;    --c-cde6ff: #1e3a5f;  --c-f3e2a8: #6b4f0e;  --c-e8d9a0: #6b4f0e;
+  --c-aaa: #5a6170;    --c-999: #5a6170;    --c-9999aa: #5a6170; --c-9a9ab0: #5a6170;  --c-888: #5a6170;     --c-777: #5a6170;
+  --c-666: #8a909d;    --c-555: #8a909d;    --c-333: #a3a9b4;
+  --c-ff9090: #b91c1c; --c-ffb0b0: #b91c1c;
+  --noise-opacity: 0;
+  color-scheme: light;
+}
+
+body { transition: background-color 0.2s, color 0.2s; }
+body::before { opacity: var(--noise-opacity); }
+
+
+/* Light mode: pale borders need a hint of depth. */
+:root[data-theme="light"] .card,
+:root[data-theme="light"] .stat,
+:root[data-theme="light"] .hist-card,
+:root[data-theme="light"] .modal,
+:root[data-theme="light"] .modal-box { box-shadow: 0 1px 2px rgba(16, 24, 40, 0.05), 0 1px 3px rgba(16, 24, 40, 0.04); }
+:root[data-theme="light"] .drawer { box-shadow: -12px 0 40px rgba(16, 24, 40, 0.12); }
+:root[data-theme="light"] .modal-overlay,
+:root[data-theme="light"] .scrim,
+:root[data-theme="light"] .modal { background: rgba(17, 20, 27, 0.35); }
+:root[data-theme="light"] .modal-box { background: var(--surface); }
+
+/* Theme toggle (injected into the nav by theme.js) */
+.theme-toggle {
+  width: 34px; height: 34px; flex-shrink: 0;
+  display: inline-flex; align-items: center; justify-content: center;
+  background: none; border: 1px solid var(--border-light); border-radius: 8px;
+  color: var(--muted); cursor: pointer; transition: color 0.2s, border-color 0.2s;
+}
+.theme-toggle:hover { color: var(--text); }
+.theme-toggle svg { width: 16px; height: 16px; stroke: currentColor; fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.theme-toggle .sun { display: none; }
+:root[data-theme="light"] .theme-toggle .sun { display: block; }
+:root[data-theme="light"] .theme-toggle .moon { display: none; }
+
+/* Phones: keep the nav on one line. */
+@media (max-width: 700px) {
+  .nav-usage { display: none !important; }
+  nav .nav-logout, nav .nav-btn { white-space: nowrap; }
+  nav .nav-links { min-width: 0; }
+  .theme-toggle { width: 30px; height: 30px; }
+}

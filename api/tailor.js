@@ -1,5 +1,6 @@
 import Anthropic from '@anthropic-ai/sdk';
 import { createClient } from '@supabase/supabase-js';
+import { createHash } from 'node:crypto';
 
 const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_KEY);
@@ -35,6 +36,218 @@ function repairJSON(str) {
   if (inString) result += '"';
   while (opens.length) result += opens.pop();
   return result;
+}
+
+async function withRetry(fn, retries = 3) {
+  for (let attempt = 0; ; attempt++) {
+    try { return await fn(); } catch (err) {
+      if (err?.status !== 429 || attempt >= retries) throw err;
+      await new Promise(r => setTimeout(r, Math.pow(2, attempt) * 1500));
+    }
+  }
+}
+
+async function askJSON(prompt, maxTokens) {
+  const msg = await withRetry(() => anthropic.messages.create({
+    model: 'claude-sonnet-4-6', max_tokens: maxTokens, temperature: 0,
+    messages: [{ role: 'user', content: prompt }]
+  }));
+  const text = msg.content.map(b => b.text || '').join('');
+  return JSON.parse(repairJSON(text.slice(text.indexOf('{'), text.lastIndexOf('}') + 1)));
+}
+
+// ── Scores ──────────────────────────────────────────────────────────────────
+// Two numbers, both computed in code from cached inputs so they are reproducible:
+//
+//   FIT SCORE (headline): does the candidate's actual experience match the job?
+//     The model rates each requirement strong / partial / none for the ORIGINAL resume and must
+//     quote the resume as evidence. Quotes are checked against the resume text; a quote that
+//     isn't there downgrades the rating. Score = weighted credit (strong 1, partial 0.5).
+//     Judgments are cached per resume+job, so the same inputs always give the same score.
+//     Tailoring can't change fit (it can't add experience), so there is one fit score.
+//
+//   ATS KEYWORDS (before -> after): share of the job's requirements the resume names literally
+//     (skill or alias). This is what tailoring improves.
+//
+// Requirements are extracted once per job description and cached (client, then Supabase).
+// Weights: required = 2, preferred = 1.
+
+// Must match the client's hashing in app.html (normalize -> SHA-256 hex).
+export const normalizeJD = (jd) => String(jd || '').replace(/\s+/g, ' ').trim().toLowerCase();
+export const hashJD = (jd) => createHash('sha256').update(normalizeJD(jd)).digest('hex');
+// Key for cached fit judgments. Must match fitKey() in app.html.
+export const fitKeyFor = (resume, jd) => createHash('sha256').update(normalizeJD(resume) + '\n--\n' + normalizeJD(jd)).digest('hex');
+
+function cleanRequirements(list) {
+  if (!Array.isArray(list)) return null;
+  const out = list.slice(0, 12).map(r => ({
+    skill: String(r?.skill || '').trim().slice(0, 80),
+    aliases: (Array.isArray(r?.aliases) ? r.aliases : []).map(a => String(a || '').trim().slice(0, 60)).filter(Boolean).slice(0, 6),
+    importance: r?.importance === 'preferred' ? 'preferred' : 'required'
+  })).filter(r => r.skill);
+  return out.length >= 3 ? out : null;
+}
+
+async function getRequirements(jobDescription, provided) {
+  const hash = hashJD(jobDescription);
+  const fromClient = cleanRequirements(provided);
+  if (fromClient) return { hash, requirements: fromClient, source: 'client' };
+
+  const key = `req-${hash}`.slice(0, 80);
+  try {
+    const { data } = await supabase.from('resume_cache').select('search_results').eq('job_title_hash', key).maybeSingle();
+    const raw = data?.search_results;  // jsonb column; older rows may hold a JSON string
+    const cached = raw && cleanRequirements(typeof raw === 'string' ? JSON.parse(raw) : raw);
+    if (cached) return { hash, requirements: cached, source: 'cache' };
+  } catch { /* cache unavailable: extract below */ }
+
+  const out = await askJSON(`From this job description, list the 8-12 most important requirements a recruiter or ATS would screen for: concrete skills, tools, domains and responsibilities. Phrase each the way the posting does. Most important first.
+
+JOB DESCRIPTION:
+${jobDescription}
+
+Return JSON only:
+{"requirements": [{"skill": "<short, e.g. \\"React\\", \\"REST APIs\\", \\"stakeholder communication\\">", "aliases": [<2-4 alternate spellings or close synonyms an ATS would also accept>], "importance": "required" | "preferred"}]}`, 900);
+  const requirements = cleanRequirements(out.requirements);
+  if (!requirements) throw new Error('No requirements extracted');
+  supabase.from('resume_cache')
+    .upsert({ job_title_hash: key, search_results: requirements, created_at: new Date().toISOString() }, { onConflict: 'job_title_hash' })
+    .then(() => {}, () => {});
+  return { hash, requirements, source: 'extracted' };
+}
+
+const LEVELS = ['strong', 'partial', 'none'];
+
+// Validate/trim judgments (from the model or from a client cache).
+export function cleanNotes(raw, count) {
+  if (!raw || !Array.isArray(raw.items)) return null;
+  const items = raw.items.slice(0, 15).map(it => ({
+    i: Number(it?.i),
+    level: LEVELS.includes(it?.level) ? it.level : 'none',
+    evidence: String(it?.evidence || '').slice(0, 300),
+    suggestion: String(it?.suggestion || '').slice(0, 300)
+  })).filter(it => Number.isInteger(it.i) && it.i >= 0 && it.i < count);
+  if (!items.length) return null;
+  return {
+    company: String(raw.company || '').slice(0, 120),
+    role: String(raw.role || '').slice(0, 160),
+    summary: String(raw.summary || '').slice(0, 400),
+    items
+  };
+}
+
+// Per-requirement fit judgments for the ORIGINAL resume, with quoted evidence.
+async function judgeFit(resume, jobDescription, requirements) {
+  const out = await askJSON(`You are a strict, fair recruiter screening a resume for one job. For each requirement, judge whether the candidate's ACTUAL experience covers it, regardless of the exact words used.
+
+Levels:
+- "strong": the resume clearly shows doing this, by name or through clearly equivalent work.
+- "partial": related or transferable experience, or lighter exposure (coursework, a small project, adjacent tool).
+- "none": nothing in the resume supports it.
+
+Rules:
+- Judge experience, not keywords. "Worked with sales and ops leads to scope features" is evidence for "stakeholder management".
+- For strong or partial you MUST give "evidence": a short excerpt copied word for word from the resume. If you can't quote it, the level is "none".
+- Do not give credit for things the resume doesn't show. Do not penalize different wording.
+
+ORIGINAL RESUME:
+${resume}
+
+JOB DESCRIPTION:
+${jobDescription}
+
+REQUIREMENTS (by index):
+${requirements.map((r, i) => `${i}. ${r.skill} (${r.importance})`).join('\n')}
+
+Return JSON only:
+{
+  "company": "<hiring company name, or empty string>",
+  "role": "<job title, short>",
+  "summary": "<one sentence: the single biggest real gap between this candidate and the role>",
+  "items": [
+    {
+      "i": <requirement index>,
+      "level": "strong" | "partial" | "none",
+      "evidence": "<verbatim resume excerpt, or empty string>",
+      "suggestion": "<for strong or partial: one resume bullet (action verb, no pronouns, under 25 words) that states this experience in the posting's terms, using ONLY what the resume shows. For none: empty string; never invent experience>"
+    }
+  ]
+}
+Include exactly one item per requirement.`, 2200);
+  return cleanNotes(out, requirements.length);
+}
+
+// Resume words, for checking that quoted evidence really comes from the resume.
+const wordsOf = (t) => String(t || '').toLowerCase().replace(/[^a-z0-9+#%$.]+/g, ' ').split(' ').filter(w => w.length > 2);
+// Share of the quote's words that appear in the resume (1 = fully grounded).
+function evidenceMatch(evidence, resumeWords) {
+  const ws = wordsOf(evidence);
+  if (!ws.length) return 0;
+  return ws.filter(w => resumeWords.has(w)).length / ws.length;
+}
+
+function escapeRegExp(s) { return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); }
+
+// Deterministic keyword check: does the text literally contain the skill or one of its aliases?
+function mentions(text, terms) {
+  const hay = text.toLowerCase();
+  return terms.some(t => {
+    const term = String(t || '').trim().toLowerCase();
+    if (term.length < 2) return false;
+    return new RegExp(`(?<![a-z0-9])${escapeRegExp(term)}(?![a-z0-9])`).test(hay);
+  });
+}
+
+const WEIGHT = { required: 2, preferred: 1 };
+export function scoreResume(text, requirements) {
+  const total = requirements.reduce((n, r) => n + WEIGHT[r.importance], 0);
+  if (!total) return null;
+  const got = requirements.reduce((n, r) => n + (mentions(text, [r.skill, ...r.aliases]) ? WEIGHT[r.importance] : 0), 0);
+  return Math.round(100 * got / total);
+}
+
+const CREDIT = { strong: 1, partial: 0.5, none: 0 };
+const DOWNGRADE = { strong: 'partial', partial: 'none', none: 'none' };
+
+export function buildGapAnalysis(requirements, notes, originalResume, tailoredResume) {
+  if (!requirements) return null;
+  const byIndex = new Map((notes?.items || []).map(it => [it.i, it]));
+  const resumeWords = new Set(wordsOf(originalResume));
+  const rows = requirements.map((r, i) => {
+    const n = byIndex.get(i) || { level: 'none', evidence: '', suggestion: '' };
+    let level = n.level;
+    // Grounding check: a strong/partial rating needs a quote that is actually in the resume.
+    // Mostly there (light paraphrase) -> one level down; mostly invented -> no credit.
+    const match = level === 'none' ? 1 : evidenceMatch(n.evidence, resumeWords);
+    const grounded = match >= 0.8;
+    if (!grounded) level = match >= 0.5 ? DOWNGRADE[level] : 'none';
+    const terms = [r.skill, ...r.aliases];
+    return {
+      skill: r.skill,
+      importance: r.importance,
+      level,
+      ungrounded: !grounded,
+      supported: level !== 'none',
+      evidence: level === 'none' ? '' : n.evidence,
+      suggestion: level === 'none' ? '' : n.suggestion,
+      inOriginal: mentions(originalResume, terms),
+      inTailored: mentions(tailoredResume, terms)
+    };
+  });
+  const total = rows.reduce((t, r) => t + WEIGHT[r.importance], 0);
+  const fitScore = notes && total ? Math.round(100 * rows.reduce((t, r) => t + WEIGHT[r.importance] * CREDIT[r.level], 0) / total) : null;
+  return {
+    company: notes?.company || '',
+    role: notes?.role || '',
+    summary: notes?.summary || '',
+    fitScore,
+    keywordBefore: scoreResume(originalResume, requirements),
+    keywordAfter: scoreResume(tailoredResume, requirements),
+    requirements: rows,
+    coverageBefore: rows.filter(r => r.inOriginal).length,
+    coverageAfter: rows.filter(r => r.inTailored).length,
+    total: rows.length
+  };
 }
 
 async function searchReferenceResumes(jobDescription) {
@@ -126,7 +339,7 @@ export default async function handler(req, res) {
     return res.status(401).json({ error: 'Not authenticated' });
   }
 
-  const { resume, jobDescription } = req.body;
+  const { resume, jobDescription, requirements: cachedRequirements, fitCache } = req.body;
   if (!resume || !jobDescription) return res.status(400).json({ error: 'Missing resume or job description' });
 
   // Set up SSE
@@ -137,11 +350,24 @@ export default async function handler(req, res) {
   res.flushHeaders(); // Send headers immediately so the stream is established
 
   try {
+    // In parallel with tailoring: get the job's requirements (cached per job post),
+    // then the resume-specific gap notes. Neither failure blocks the tailored resume.
+    const reqPromise = getRequirements(jobDescription, cachedRequirements)
+      .catch(err => { console.error('getRequirements failed:', err?.message); return null; });
+    const fitKey = fitKeyFor(resume, jobDescription);
+    const notesPromise = reqPromise.then(r => {
+      if (!r) return null;
+      // Reuse cached judgments for this exact resume + job (keeps the fit score stable).
+      const cached = fitCache?.key === fitKey && fitCache?.jdHash === r.hash ? cleanNotes(fitCache.notes, r.requirements.length) : null;
+      return cached || judgeFit(resume, jobDescription, r.requirements);
+    })
+      .catch(err => { console.error('judgeFit failed:', err?.message); return null; });
+
     // Search for reference resumes
     const referenceResumes = await searchReferenceResumes(jobDescription);
 
     const referenceContext = referenceResumes
-      ? `\n\nREFERENCE RESUMES FROM SUCCESSFUL CANDIDATES IN SIMILAR ROLES:\n${referenceResumes}\n\nUse these as inspiration for tone, structure, and keyword usage — but do NOT copy them directly. Adapt ideas to the candidate's actual experience.`
+      ? `\n\nEXAMPLE RESUME SNIPPETS FOUND ONLINE FOR SIMILAR ROLES (unverified, not known to have led to a hire):\n${referenceResumes}\n\nUse these only as loose inspiration for tone, structure and keyword usage. Do NOT copy them, and never add experience the candidate doesn't have.`
       : '';
 
     let fullText = '';
@@ -196,10 +422,9 @@ RESUME_END
 PART 2 — JSON only (no resume text here):
 \`\`\`json
 {
-  "matchScore": <0-100. Keyword overlap 40% + experience match 35% + skills 25%. Strong tailored resume = 70-85. Below 60 only for major gaps.>,
   "strengths": [<3-5 short strings>],
   "missingKeywords": [<3-5 short strings>],
-  "changes": [<6-8 changes, each: {"original":"<brief excerpt>","replacement":"<brief excerpt>","reason":"<one sentence>"}>]
+  "changes": [<6-8 changes, each: {"original":"<short excerpt copied verbatim from the original resume, or empty if newly added>","replacement":"<short excerpt copied verbatim from the tailored resume>","reason":"<one sentence>"}>]
 }
 \`\`\``
       }],
@@ -256,7 +481,6 @@ PART 2 — JSON only (no resume text here):
     }
 
     // Apply defaults if JSON was missing or incomplete
-    if (!result.matchScore) result.matchScore = null;
     if (!result.strengths) result.strengths = [];
     if (!result.missingKeywords) result.missingKeywords = [];
     if (!result.changes) result.changes = [];
@@ -268,6 +492,19 @@ PART 2 — JSON only (no resume text here):
       .split('\n')
       .filter(line => line.trim() === '' || /[a-zA-Z0-9]/.test(line))
       .join('\n');
+
+    // Before/after scores: same formula, same cached requirements -> reproducible.
+    const reqs = await reqPromise;
+    const notes = await notesPromise;
+    result.analysis = buildGapAnalysis(reqs?.requirements || null, notes, resume, result.tailoredResume);
+    result.fitScore = result.analysis?.fitScore ?? null;
+    result.keywordBefore = result.analysis?.keywordBefore ?? null;
+    result.keywordAfter = result.analysis?.keywordAfter ?? null;
+    result.matchScore = result.fitScore; // headline number used by history and pipeline
+    result.jdHash = reqs?.hash || null;
+    result.requirementsSpec = reqs?.requirements || null; // client caches per job post
+    result.fitKey = fitKey;
+    result.notesSpec = notes;                              // client caches per resume + job
 
     // Increment usage count
     if (user) {

@@ -18,6 +18,15 @@
     },
     "api/stripe-webhook.js": {
       "maxDuration": 15
+    },
+    "api/assist.js": {
+      "maxDuration": 60
+    },
+    "api/fetch-job.js": {
+      "maxDuration": 20
+    },
+    "api/outcomes.js": {
+      "maxDuration": 15
     }
   },
   "headers": [
