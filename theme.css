@@ -24,8 +24,10 @@
   /* Original text shades, one variable per value the pages used */
   --c-fff: #fff;       --c-e8e8f0: #e8e8f0;
   --c-ccc: #ccc;       --c-bbb: #bbb;       --c-cfe: #cfe;       --c-cde6ff: #cde6ff;  --c-f3e2a8: #f3e2a8;  --c-e8d9a0: #e8d9a0;
-  --c-aaa: #aaa;       --c-999: #999;       --c-9999aa: #9999aa; --c-9a9ab0: #9a9ab0;  --c-888: #888;        --c-777: #777;
-  --c-666: #666;       --c-555: #555;       --c-333: #333;
+  --c-aaa: #aaa;       --c-999: #999;       --c-9999aa: #9999aa; --c-9a9ab0: #9a9ab0;  --c-888: #888;        --c-777: #80809a;
+  /* #555/#666/#333 failed contrast on the dark ground (1.5–3.5:1); all dim text now uses --text-3 (≥4.5:1). */
+  --c-666: var(--text-3); --c-555: var(--text-3); --c-333: var(--text-3);
+  --text-3: #80809a;   --border-control: #64647e;
   --c-ff9090: #ff9090; --c-ffb0b0: #ffb0b0;
   --noise-opacity: 1;
   color-scheme: dark;
@@ -37,9 +39,10 @@
   --border: #e2e5eb;      --border-light: #cfd4dd;
   --text: #11141b;        --muted: #5a6170;
   --fg-rgb: 0, 0, 0;
-  --accent: #059669;      --accent-rgb: 5, 150, 105;    --on-accent: #ffffff;
-  --warn: #a16207;        --warn-rgb: 202, 138, 4;
-  --danger: #dc2626;      --danger-rgb: 220, 38, 38;
+  /* Darkened from #059669 / #a16207 / #dc2626 so text and white-on-accent buttons pass 4.5:1. */
+  --accent: #047857;      --accent-rgb: 4, 120, 87;     --on-accent: #ffffff;
+  --warn: #8a5a00;        --warn-rgb: 138, 90, 0;
+  --danger: #c81e1e;      --danger-rgb: 200, 30, 30;
   --blue: #2563eb;        --blue-rgb: 37, 99, 235;
   --violet: #7c3aed;      --violet-rgb: 124, 58, 237;
   --nav-bg: rgba(245, 246, 248, 0.88);
@@ -48,7 +51,8 @@
   --c-fff: #11141b;    --c-e8e8f0: #11141b;
   --c-ccc: #363c48;    --c-bbb: #363c48;    --c-cfe: #1f3d33;    --c-cde6ff: #1e3a5f;  --c-f3e2a8: #6b4f0e;  --c-e8d9a0: #6b4f0e;
   --c-aaa: #5a6170;    --c-999: #5a6170;    --c-9999aa: #5a6170; --c-9a9ab0: #5a6170;  --c-888: #5a6170;     --c-777: #5a6170;
-  --c-666: #8a909d;    --c-555: #8a909d;    --c-333: #a3a9b4;
+  --c-666: var(--text-3); --c-555: var(--text-3); --c-333: var(--text-3);
+  --text-3: #646b79;   --border-control: #868d9a;
   --c-ff9090: #b91c1c; --c-ffb0b0: #b91c1c;
   --noise-opacity: 0;
   color-scheme: light;
@@ -90,3 +94,32 @@ body::before { opacity: var(--noise-opacity); }
   nav .nav-links { min-width: 0; }
   .theme-toggle { width: 30px; height: 30px; }
 }
+
+
+/* ── Shared foundations (design system: Resumatch) ───────────────────────────
+   Loaded after each page's own <style>, so these win where they overlap.
+   Buttons, tabs and nav read in sentence case: no tracking. All-caps stays only
+   on the small 11px section labels. */
+.nav-links { display: flex; gap: 4px; margin-left: 16px; }
+.nav-link { display: inline-flex; align-items: center; gap: 8px; font-size: 13px; padding: 6px 12px; border-radius: 6px;
+  border: 1px solid transparent; color: var(--muted); text-decoration: none; letter-spacing: 0; background: none; cursor: pointer; transition: color .2s, border-color .2s, background .2s; }
+.nav-link:hover:not(.active) { color: var(--text); }
+.nav-link.active { border-color: rgba(var(--accent-rgb), 0.3); color: var(--accent); background: rgba(var(--accent-rgb), 0.06); }
+.nav-num { font-size: 11px; color: var(--text-3); }
+.nav-link.active .nav-num { color: var(--accent); }
+
+.btn-primary, .btn-ghost, .btn-save, .btn-danger, .copy-btn, .file-upload-btn, .modal-cta, .nav-upgrade,
+.nav-logout, .nav-btn, .tab-btn, .d-tab, .stage, .tone-pill, .hist-retailor, .truth-pill,
+.gap-sugg button, .truth-fix button { letter-spacing: 0.2px; }
+.btn-primary, .modal-cta { letter-spacing: 0.2px; }
+.col-name { font-size: 13px; letter-spacing: 0; font-weight: 500; }
+
+/* Inputs: a visible edge (3:1) in both themes. */
+textarea, .url-input, .input, .attach-select { border-color: var(--border-control); }
+textarea:hover:not(:focus), .url-input:hover:not(:focus), .input:hover:not(:focus) { border-color: var(--muted); }
+.btn-ghost, .copy-btn, .file-upload-btn, .nav-logout, .nav-btn { border-color: var(--border-control); }
+
+/* Keyboard focus is always visible. */
+:where(a, button, input, select, textarea, summary, [tabindex]):focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+@media (prefers-reduced-motion: reduce) { *, *::before, *::after { transition: none !important; animation: none !important; } }

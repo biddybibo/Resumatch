@@ -220,13 +220,13 @@
   <img src="/logo.jpg" alt="Resumatch" style="width:32px;height:32px;border-radius:6px;object-fit:cover;">
   <a href="/" class="nav-logo">RESUMATCH</a>
   <div class="nav-links">
-    <a href="/app" class="nav-link">Resume tailor</a>
-    <a href="/cover" class="nav-link">Cover letter</a>
-    <button class="nav-link active">Pipeline</button>
+    <a href="/app" class="nav-link"><span class="nav-num">1</span>Tailor</a>
+    <a href="/cover" class="nav-link"><span class="nav-num">2</span>Cover letter</a>
+    <a href="/pipeline" class="nav-link active" aria-current="page"><span class="nav-num">3</span>Pipeline</a>
   </div>
   <div class="nav-right">
-    <button class="nav-btn" id="logout-btn" onclick="logout()" style="display:none;">LOG OUT</button>
-    <a class="nav-btn" id="login-btn" href="/login" style="display:none;">LOG IN</a>
+    <button class="nav-btn" id="logout-btn" onclick="logout()" style="display:none;">Log out</button>
+    <a class="nav-btn" id="login-btn" href="/login" style="display:none;">Log in</a>
   </div>
 </nav>
 
@@ -238,14 +238,14 @@
     </div>
     <div class="head-actions">
       <span class="mode-badge" id="mode-badge"></span>
-      <a class="btn-ghost" href="/app">TAILOR A RESUME</a>
-      <button class="btn-primary" onclick="openAdd()">+ ADD APPLICATION</button>
+      <a class="btn-ghost" href="/app">Tailor a resume</a>
+      <button class="btn-primary" onclick="openAdd()">+ Add application</button>
     </div>
   </div>
 
   <div class="banner info" id="import-banner">
     <span id="import-msg"></span>
-    <button class="btn-primary" onclick="importLocal()">IMPORT TO ACCOUNT</button>
+    <button class="btn-primary" onclick="importLocal()">Import to account</button>
   </div>
   <div class="banner warn" id="fallback-banner">
     <span>Cloud sync is unavailable right now, so changes are being saved on this device.</span>
@@ -271,7 +271,7 @@
       <button class="reason-opt" onclick="pickReason('no_response')">No response<small>Never heard back.</small></button>
       <button class="reason-opt" onclick="pickReason('withdrew')">I withdrew<small>Took another offer or lost interest. Not counted as an outcome.</small></button>
     </div>
-    <div class="modal-actions"><button class="btn-ghost" onclick="pickReason(null)">CANCEL</button></div>
+    <div class="modal-actions"><button class="btn-ghost" onclick="pickReason(null)">Cancel</button></div>
   </div>
 </div>
 
@@ -285,8 +285,8 @@
     <div class="row"><label class="field-label" for="add-role">ROLE</label><input class="input" id="add-role" required maxlength="160" placeholder="Software Engineering Intern"></div>
     <div class="row"><label class="field-label" for="add-status">STAGE</label><select class="input" id="add-status"></select></div>
     <div class="modal-actions">
-      <button type="button" class="btn-ghost" onclick="closeAdd()">CANCEL</button>
-      <button type="submit" class="btn-primary">ADD</button>
+      <button type="button" class="btn-ghost" onclick="closeAdd()">Cancel</button>
+      <button type="submit" class="btn-primary">Add</button>
     </div>
   </form>
 </div>
@@ -334,7 +334,7 @@
   function renderMode() {
     const b = document.getElementById('mode-badge');
     b.className = 'mode-badge' + (store.mode === 'cloud' ? ' cloud' : '');
-    b.textContent = store.mode === 'cloud' ? '● SYNCED TO ACCOUNT' : '○ SAVED ON THIS DEVICE';
+    b.textContent = store.mode === 'cloud' ? '● Synced to account' : '○ Saved on this device';
     b.title = store.mode === 'cloud' ? 'Stored in your Resumatch account' : (session ? store.fallbackReason : 'Log in to sync across devices');
     document.getElementById('fallback-banner').classList.toggle('show', !!session && store.mode === 'local');
   }
@@ -354,10 +354,10 @@
   function dueInfo(dateStr) {
     if (!dateStr) return null;
     const diff = Math.round((new Date(dateStr + 'T00:00:00') - new Date(todayStr() + 'T00:00:00')) / 86400000);
-    if (diff < 0) return { cls: 'overdue', label: `${-diff}D OVERDUE` };
-    if (diff === 0) return { cls: 'today', label: 'TODAY' };
-    if (diff === 1) return { cls: 'upcoming', label: 'TOMORROW' };
-    return { cls: 'upcoming', label: new Date(dateStr + 'T00:00:00').toLocaleDateString(undefined, { month: 'short', day: 'numeric' }).toUpperCase() };
+    if (diff < 0) return { cls: 'overdue', label: `${-diff}d overdue` };
+    if (diff === 0) return { cls: 'today', label: 'Today' };
+    if (diff === 1) return { cls: 'upcoming', label: 'Tomorrow' };
+    return { cls: 'upcoming', label: new Date(dateStr + 'T00:00:00').toLocaleDateString(undefined, { month: 'short', day: 'numeric' }) };
   }
   function stageSince(a) {
     const moves = (a.activity || []).filter(e => e.type === 'stage' || e.type === 'created');
@@ -384,11 +384,11 @@
     const fu = lastFollowup(a);
     const sentSinceStage = fu && new Date(fu.at) >= new Date(since);
     const quietDays = sentSinceStage ? daysAgo(fu.at) : d;
-    if (a.status === 'applied' && d >= 30 && quietDays >= 14) return { kind: 'stale', label: `NO RESPONSE ${d}D?` };
-    if (a.status === 'applied' && quietDays >= 7) return { kind: 'no_reply', label: `NO REPLY ${quietDays}D` };
+    if (a.status === 'applied' && d >= 30 && quietDays >= 14) return { kind: 'stale', label: `No response ${d}d?` };
+    if (a.status === 'applied' && quietDays >= 7) return { kind: 'no_reply', label: `No reply ${quietDays}d` };
     if (a.status === 'interviewing') {
-      if (!sentSinceStage && d <= 2) return { kind: 'thank_you', label: 'SEND THANK-YOU' };
-      if (quietDays >= 7) return { kind: 'post_interview', label: `NO UPDATE ${quietDays}D` };
+      if (!sentSinceStage && d <= 2) return { kind: 'thank_you', label: 'Send thank-you' };
+      if (quietDays >= 7) return { kind: 'post_interview', label: `No update ${quietDays}d` };
     }
     return null;
   }
@@ -561,8 +561,8 @@
         ${Number.isFinite(a.fitScore) ? `<span class="chip fit" title="Fit score">FIT ${a.fitScore}</span>${hasScores ? `<span class="chip kw" title="ATS keyword match, original → tailored">KW ${a.matchScoreBefore}→${a.matchScoreAfter}</span>` : ''}`
           : hasScores ? `<span class="chip score">${a.matchScoreBefore}→${a.matchScoreAfter}</span>` : Number.isFinite(a.matchScoreAfter) ? `<span class="chip score">${a.matchScoreAfter}</span>` : ''}
         ${a.status === 'closed' && a.closeReason ? `<span class="chip closed ${a.closeReason}">${CLOSE_LABELS[a.closeReason]}</span>` : ''}
-        ${a.tailoredResume ? '<span class="chip doc">RESUME</span>' : ''}
-        ${a.coverLetter ? '<span class="chip doc">LETTER</span>' : ''}
+        ${a.tailoredResume ? '<span class="chip doc">Resume</span>' : ''}
+        ${a.coverLetter ? '<span class="chip doc">Letter</span>' : ''}
         ${nudge(a) ? `<span class="chip nudge">${nudge(a).label}</span>` : ''}
         <span class="card-age" title="Time in this stage">${stageSince(a)}</span>
       </div>
@@ -576,7 +576,7 @@
       const list = apps.filter(a => a.status === s).sort((x, y) => x.position - y.position);
       const empty = s === 'saved' ? 'Tailor a resume and hit<br>“Save to pipeline”' : 'Drag cards here';
       return `<section class="col" data-status="${s}">
-        <div class="col-head"><span class="col-dot" style="background:${COLORS[s]}"></span><span class="col-name">${STATUS_LABELS[s].toUpperCase()}</span><span class="col-count">${list.length}</span></div>
+        <div class="col-head"><span class="col-dot" style="background:${COLORS[s]}"></span><span class="col-name">${STATUS_LABELS[s]}</span><span class="col-count">${list.length}</span></div>
         <div class="col-body">${list.length ? list.map(cardHTML).join('') : `<div class="col-empty">${empty}</div>`}</div>
       </section>`;
     }).join('');
@@ -722,12 +722,12 @@
         <div class="stage-bar">${STATUSES.map((s, i) => {
           const cls = i === curIdx ? 'current' : (s !== 'closed' && i < curIdx ? 'done' : '');
           const style = i === curIdx ? `background:${COLORS[s]};border-color:${COLORS[s]}` : '';
-          return `<button class="stage ${cls}" style="${style}" onclick="setStage('${s}')">${STATUS_LABELS[s].toUpperCase()}</button>`;
+          return `<button class="stage ${cls}" style="${style}" onclick="setStage('${s}')">${STATUS_LABELS[s]}</button>`;
         }).join('')}</div>
       </div>
       <div class="d-scroll">
-        ${nudge(a)?.kind === 'stale' ? `<div class="stale-bar"><span>No reply in ${daysAgo(lastStageAt(a))} days. Mark it as no response? That closes it and records the outcome.</span><button class="btn-ghost" onclick="markNoResponse()">MARK NO RESPONSE</button></div>` : ''}
-        ${a.status === 'closed' ? `<div class="stale-bar" style="color:var(--c-bbb);border-color:var(--border);background:var(--inset-2)"><span>Closed: <b>${CLOSE_LABELS[a.closeReason] || 'reason not set'}</b></span><button class="btn-ghost" onclick="changeReason()">CHANGE</button></div>` : ''}
+        ${nudge(a)?.kind === 'stale' ? `<div class="stale-bar"><span>No reply in ${daysAgo(lastStageAt(a))} days. Mark it as no response? That closes it and records the outcome.</span><button class="btn-ghost" onclick="markNoResponse()">Mark no response</button></div>` : ''}
+        ${a.status === 'closed' ? `<div class="stale-bar" style="color:var(--c-bbb);border-color:var(--border);background:var(--inset-2)"><span>Closed: <b>${CLOSE_LABELS[a.closeReason] || 'reason not set'}</b></span><button class="btn-ghost" onclick="changeReason()">Change</button></div>` : ''}
         ${hasBefore || hasAfter || an.total ? `<div class="score-strip">
           ${Number.isFinite(a.fitScore) ? `<div class="score-box"><div class="field-label">FIT SCORE</div><div class="v"><span style="color:var(--accent)">${a.fitScore}</span></div></div>` : ''}
           ${hasAfter ? `<div class="score-box"><div class="field-label">${Number.isFinite(a.fitScore) ? 'ATS KEYWORDS' : 'MATCH SCORE'}</div><div class="v">${hasBefore ? `<span class="was">${a.matchScoreBefore}${Number.isFinite(a.fitScore) ? '%' : ''} →</span>` : ''}<span style="color:var(--accent)">${a.matchScoreAfter}${Number.isFinite(a.fitScore) ? '%' : ''}</span></div></div>` : ''}
@@ -739,16 +739,16 @@
           <div style="grid-column:1/-1"><label class="field-label" for="f-url">JOB LINK</label><input class="input" id="f-url" type="url" value="${esc(a.jobUrl)}" placeholder="https://" onchange="saveField('jobUrl', this.value)"></div>
           <div style="grid-column:1/-1"><label class="field-label" for="f-notes">NOTES</label><textarea class="input" id="f-notes" placeholder="Recruiter name, referral, what they asked in the screen…" onchange="saveField('notes', this.value)">${esc(a.notes)}</textarea></div>
         </div>
-        <div class="d-tabs">${[['resume', 'RESUME'], ['changes', 'CHANGES'], ['truth', `TRUTH CHECK${a.truthCheck?.flags?.length ? ' (' + a.truthCheck.flags.length + ')' : ''}`], ['gaps', 'GAPS'], ['letter', 'COVER LETTER'], ['followup', `FOLLOW-UP${nudge(a) ? ' •' : ''}`], ['interview', 'INTERVIEW PREP'], ['job', 'JOB POST'], ['activity', 'ACTIVITY']]
+        <div class="d-tabs">${[['resume', 'Resume'], ['changes', 'Changes'], ['truth', `Truth check${a.truthCheck?.flags?.length ? ' (' + a.truthCheck.flags.length + ')' : ''}`], ['gaps', 'Gaps'], ['letter', 'Cover letter'], ['followup', `Follow-up${nudge(a) ? ' •' : ''}`], ['interview', 'Interview prep'], ['job', 'Job post'], ['activity', 'Activity']]
           .map(([k, l]) => `<button class="d-tab ${drawerTab === k ? 'active' : ''}" onclick="drawerTab='${k}';renderDrawer()">${l}</button>`).join('')}</div>
         <div class="d-pane">${paneHTML(a)}</div>
       </div>
       <div class="d-foot">
-        <a class="btn-primary" href="/cover?app=${encodeURIComponent(a.id)}">${a.coverLetter ? 'REWRITE' : 'WRITE'} COVER LETTER</a>
-        ${a.jobUrl ? `<a class="btn-ghost" href="${esc(safeUrl(a.jobUrl))}" target="_blank" rel="noopener">OPEN JOB POST ↗</a>` : ''}
+        <a class="btn-primary" href="/cover?app=${encodeURIComponent(a.id)}">${a.coverLetter ? 'Rewrite' : 'Write'} cover letter</a>
+        ${a.jobUrl ? `<a class="btn-ghost" href="${esc(safeUrl(a.jobUrl))}" target="_blank" rel="noopener">Open job post ↗</a>` : ''}
         <span class="saved-hint" id="saved-hint">✓ saved</span>
         <span class="spacer"></span>
-        <button class="btn-danger" onclick="deleteApp()">DELETE</button>
+        <button class="btn-danger" onclick="deleteApp()">Delete</button>
       </div>`;
     if (active && document.getElementById(active)) document.getElementById(active).focus();
   }
@@ -756,7 +756,7 @@
   function safeUrl(u) { try { const x = new URL(u); return /^https?:$/.test(x.protocol) ? x.href : '#'; } catch { return '#'; } }
 
   function paneHTML(a) {
-    const copyBtn = (field, label) => `<button class="btn-ghost" onclick="copyField('${field}', this)">COPY ${label}</button>`;
+    const copyBtn = (field, label) => `<button class="btn-ghost" onclick="copyField('${field}', this)">Copy ${label.toLowerCase()}</button>`;
     switch (drawerTab) {
       case 'resume':
         return a.tailoredResume
@@ -819,7 +819,7 @@
     const t = a.truthCheck;
     if (!a.tailoredResume || !a.originalResume) return `<div class="empty-pane">The truth check runs on tailored resumes. <a href="/app">Tailor one for this role →</a></div>`;
     const running = busy[key(a, 'truth')];
-    const btn = `<button class="btn-ghost" onclick="runTruth()" ${running ? 'disabled' : ''}>${running ? spinner('CHECKING…') : (t ? 'RE-RUN CHECK' : 'RUN TRUTH CHECK')}</button>`;
+    const btn = `<button class="btn-ghost" onclick="runTruth()" ${running ? 'disabled' : ''}>${running ? spinner('Checking…') : (t ? 'Re-run check' : 'Run truth check')}</button>`;
     if (!t) return `<div class="ai-box"><div class="ai-hint" style="margin-bottom:12px">Compares every claim in the tailored resume with your original, and flags any number that doesn't appear in it.</div>${btn}${errLine(a, 'truth')}</div>`;
     const flags = t.flags || [];
     return `<div class="ai-row"><span class="ai-hint">${flags.length ? `<b style="color:var(--danger)">${flags.length} claim${flags.length > 1 ? 's' : ''}</b> to verify` : '<b style="color:var(--accent)">Every claim is backed by your original resume.</b>'}${t.checked ? ` · ${t.checked} checked` : ''}</span><span style="margin-left:auto">${btn}</span></div>${errLine(a, 'truth')}` +
@@ -840,7 +840,7 @@
     const last = lastFollowup(a);
     const head = `<div class="ai-row">
         <select class="input" id="fu-kind" onchange="fuKind[openId] = this.value">${Object.entries(KIND_LABELS).map(([k, l]) => `<option value="${k}" ${k === kind ? 'selected' : ''}>${l}</option>`).join('')}</select>
-        <button class="btn-primary" onclick="genFollowup()" ${running ? 'disabled' : ''}>${running ? spinner('WRITING…') : (f ? 'REWRITE' : 'DRAFT EMAIL')}</button>
+        <button class="btn-primary" onclick="genFollowup()" ${running ? 'disabled' : ''}>${running ? spinner('Writing…') : (f ? 'Rewrite' : 'Draft email')}</button>
       </div>
       <div class="ai-hint" style="margin-bottom:14px">${n ? `<span style="color:var(--danger)">${n.label}.</span> ` : ''}${last ? `Last follow-up sent ${fmtTime(last.at)}.` : 'No follow-up sent yet.'} Uses this card's resume, job post and your notes (add the recruiter's name there).</div>${errLine(a, 'followup')}`;
     if (!f) return head;
@@ -848,9 +848,9 @@
     return head + `<input class="input email-subject" id="fu-subject" value="${esc(f.subject)}" onchange="saveFollowupEdit()">
       <textarea class="input email-body" id="fu-body" onchange="saveFollowupEdit()">${esc(f.body)}</textarea>
       <div class="pane-actions" style="margin-top:12px">
-        <button class="btn-ghost" onclick="copyEmail(this)">COPY EMAIL</button>
-        <a class="btn-ghost" href="${mailto}">OPEN IN EMAIL ↗</a>
-        <button class="btn-primary" onclick="markSent()">MARK AS SENT</button>
+        <button class="btn-ghost" onclick="copyEmail(this)">Copy email</button>
+        <a class="btn-ghost" href="${mailto}">Open in email ↗</a>
+        <button class="btn-primary" onclick="markSent()">Mark as sent</button>
       </div>`;
   }
   function genFollowup() {
@@ -874,7 +874,7 @@
   function copyEmail(btn) {
     const subject = document.getElementById('fu-subject').value, body = document.getElementById('fu-body').value;
     navigator.clipboard.writeText(`Subject: ${subject}\n\n${body}`);
-    btn.textContent = '✓ COPIED'; setTimeout(() => btn.textContent = 'COPY EMAIL', 1500);
+    btn.textContent = '✓ Copied'; setTimeout(() => btn.textContent = 'Copy email', 1500);
   }
   async function markSent() {
     const a = apps.find(x => x.id === openId);
@@ -898,7 +898,7 @@
     const running = busy[key(a, 'interview')];
     const resume = a.tailoredResume || a.originalResume;
     if (!resume || !a.jobDescription) return `<div class="empty-pane">Interview prep needs this card's resume and job post. <a href="/app">Tailor a resume for this role →</a></div>`;
-    const btn = `<button class="${p ? 'btn-ghost' : 'btn-primary'}" onclick="genInterview()" ${running ? 'disabled' : ''}>${running ? spinner('PREPARING… (~30S)') : (p ? 'REGENERATE' : 'GENERATE INTERVIEW PREP')}</button>`;
+    const btn = `<button class="${p ? 'btn-ghost' : 'btn-primary'}" onclick="genInterview()" ${running ? 'disabled' : ''}>${running ? spinner('Preparing… (~30s)') : (p ? 'Regenerate' : 'Generate interview prep')}</button>`;
     if (!p) return `<div class="ai-box"><div class="ai-hint" style="margin-bottom:12px">Predicts the questions you're most likely to get for this role and drafts STAR answers from your real experience, plus smart questions to ask them.</div>${btn}${errLine(a, 'interview')}</div>`;
     const L = { situation: 'S', task: 'T', action: 'A', result: 'R' };
     return `<div class="ai-row"><span class="ai-hint">${p.questions.length} likely questions · tap one to see a STAR answer draft</span><span style="margin-left:auto">${btn}</span></div>${errLine(a, 'interview')}` +
@@ -943,7 +943,7 @@
     const a = apps.find(x => x.id === openId);
     if (!a) return;
     navigator.clipboard.writeText(a[field] || '');
-    const t = btn.textContent; btn.textContent = '✓ COPIED'; setTimeout(() => btn.textContent = t, 1500);
+    const t = btn.textContent; btn.textContent = '✓ Copied'; setTimeout(() => btn.textContent = t, 1500);
   }
 
   async function deleteApp() {
