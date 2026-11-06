@@ -1,6 +1,12 @@
-// Tracked-changes diff between an original and a tailored resume.
-// Line-level LCS diff -> pair similar removed/added lines into "modified" rows ->
-// word-level diff inside each modified row -> attach the AI's "why" notes to rows.
+// Tracked-changes diff between an original and a tailored resume, shown as a review.
+// 1. Split both resumes into sections by their headings (renamed headings like
+//    "Profile summary" -> "Professional summary" count as the same section).
+// 2. Diff lines within each section, so a reordered header or a moved section
+//    can't turn the whole resume into one block of removals and additions.
+// 3. Pair similar removed/added lines into rewrites (word-level diff inside),
+//    compare "Label: a, b, c" skill lines as sets, and mark lines that differ only
+//    in spacing, case or punctuation as formatting-only.
+// 4. Attach the AI's "why" notes and truth-check flags to the rows they describe.
 (function () {
   const esc = (s) => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
@@ -21,19 +27,74 @@
 
   const stripBullet = (s) => s.replace(/^[•●○‣⁃*\-–—]\s*/, '');
   const norm = (s) => stripBullet(s).replace(/[–—]/g, '-').replace(/\s+/g, ' ').trim().toLowerCase();
+  // Looser key: ignores spacing around punctuation, quotes, separators and phone formatting.
+  const loose = (s) => norm(s).replace(/(\d)[\s.()-]+(?=\d)/g, '$1').replace(/[‘’“”"'`]/g, '').replace(/[•|·]/g, ' ').replace(/\s*([:;,./()+-])\s*/g, '$1').replace(/\s+/g, ' ').replace(/[.;,]$/, '').trim();
   const words = (s) => norm(s).replace(/[^a-z0-9+#%$ ]/g, ' ').split(/\s+/).filter(Boolean);
-
   const STOP = new Set('a an the and or of in on to for with by at from as is are was were be this that it its into over x'.split(' '));
-  // Similarity of two lines by shared content words (overlap coefficient).
-  // A rewritten bullet usually keeps a few key nouns but grows a lot, so Jaccard undercounts it.
-  function similarity(a, b) {
+
+  // ---- Section headings -------------------------------------------------------
+  const SYN = [
+    ['summary', /^(professional |profile |career |executive )?(summary|profile|objective|overview)$|^about( me)?$/],
+    ['skills', /^(technical |core |key |relevant )?(skills|competencies|expertise|proficiencies)( (&|and) (tools|technologies))?$|^tools( (&|and) technologies)?$|^technologies$/],
+    ['experience', /^(professional |work |relevant |employment )?(experience|history)$|^employment( history)?$|^work history$/],
+    ['education', /^education( (&|and) (training|certifications))?$|^academic background$/],
+    ['projects', /^(selected |key |personal |technical )?projects$/],
+    ['certifications', /^(certifications?|licenses?( (&|and) certifications?)?|certifications? (&|and) licenses?)$/],
+    ['awards', /^(awards?|honors?)( (&|and) (awards?|honors?))?$/],
+    ['publications', /^publications?$/],
+    ['leadership', /^leadership( (&|and) activities| experience)?$|^activities$/],
+    ['volunteer', /^volunteer(ing| experience| work)?$/],
+  ];
+  function headingKey(line) {
+    const t = stripBullet(line).replace(/[:\s]+$/, '').trim();
+    if (!t || t.length > 42 || /[.,;@|]/.test(t) || /\d{3}/.test(t)) return null;
+    const lower = t.toLowerCase().replace(/\s+/g, ' ');
+    for (const [key, re] of SYN) if (re.test(lower)) return key;
+    const letters = t.replace(/[^A-Za-z]/g, '');
+    if (letters.length >= 4 && letters === letters.toUpperCase() && t.split(/\s+/).length <= 5) return lower;
+    return null;
+  }
+  const titleCase = (s) => s.toLowerCase().replace(/(^|\s)\S/g, c => c.toUpperCase());
+
+  function sections(lines) {
+    const out = [{ key: '_header', title: 'Contact & header', heading: null, lines: [] }];
+    for (const l of lines) {
+      const key = headingKey(l);
+      if (key && !out.some(s => s.key === key)) out.push({ key, title: titleCase(stripBullet(l).replace(/[:\s]+$/, '')), heading: l, lines: [] });
+      else out[out.length - 1].lines.push(l);
+    }
+    return out.filter(s => s.lines.length || s.heading);
+  }
+
+  // ---- Line similarity and list lines ---------------------------------------
+  // Overlap coefficient on content words: a rewritten bullet usually keeps a few key nouns.
+  function similarity(a, b, minShared = 2) {
     const A = new Set(words(a).filter(w => !STOP.has(w))), B = new Set(words(b).filter(w => !STOP.has(w)));
     if (!A.size || !B.size) return 0;
     let inter = 0; for (const w of A) if (B.has(w)) inter++;
-    if (inter < Math.min(2, A.size, B.size)) return 0;
+    if (inter < Math.min(minShared, A.size, B.size)) return 0;
     return inter / Math.min(A.size, B.size);
   }
+  // "Label: a, b, c" -> { label, items }
+  function listLine(s) {
+    const m = /^([^:]{2,48}):\s*(.+)$/.exec(stripBullet(s));
+    if (!m) return null;
+    const items = m[2].split(/\s*[,;|•·]\s*/).map(x => x.trim()).filter(Boolean);
+    return items.length >= 2 ? { label: m[1].trim(), items } : null;
+  }
+  const itemKey = (x) => x.toLowerCase().replace(/[^a-z0-9+#]/g, '');
+  function listDiff(oldText, newText) {
+    const a = listLine(oldText), b = listLine(newText);
+    const has = (list, x) => list.some(y => itemKey(y) === itemKey(x));
+    return {
+      label: b.label,
+      added: b.items.filter(x => !has(a.items, x)),
+      removed: a.items.filter(x => !has(b.items, x)),
+      kept: b.items.filter(x => has(a.items, x)).length,
+    };
+  }
 
+  // ---- Diff -----------------------------------------------------------------
   // Classic LCS diff. Returns [{op:'eq'|'del'|'add', a?, b?}] in order.
   function lcsDiff(a, b, eq) {
     const n = a.length, m = b.length;
@@ -55,32 +116,50 @@
   }
 
   function wordDiff(oldText, newText) {
-    const A = stripBullet(oldText).split(/(\s+)/).filter(s => s && !/^\s+$/.test(s));
-    const B = stripBullet(newText).split(/(\s+)/).filter(s => s && !/^\s+$/.test(s));
+    const A = stripBullet(oldText).split(/\s+/).filter(Boolean);
+    const B = stripBullet(newText).split(/\s+/).filter(Boolean);
     const key = (w) => w.toLowerCase().replace(/[^a-z0-9+#%$]/g, '');
     return lcsDiff(A, B, (x, y) => key(x) === key(y) && key(x) !== '' || x === y);
   }
 
-  // Turn a run of dels/adds into paired "mod" rows where lines are similar enough.
+  function rowFor(del, add) {
+    if (loose(del) === loose(add)) return { type: 'fmt', oldText: del, newText: add };
+    const la = listLine(del), lb = listLine(add);
+    if (la && lb) return { type: 'list', oldText: del, newText: add, list: listDiff(del, add) };
+    return { type: 'mod', oldText: del, newText: add, words: wordDiff(del, add) };
+  }
+
+  // Turn a run of removed/added lines into rows, in reading order. Each added line takes
+  // its best-matching removed line; leftover removals stay where they were in the original.
   function pairRun(dels, adds) {
-    const used = new Set();
-    const pairs = adds.map(add => {
-      let best = -1, bestSim = 0.45;
-      dels.forEach((d, k) => { if (!used.has(k)) { const s = similarity(d, add); if (s > bestSim) { bestSim = s; best = k; } } });
-      if (best >= 0) used.add(best);
-      return { add, del: best >= 0 ? dels[best] : null };
+    const used = new Map(); // del index -> add index
+    const match = adds.map(() => -1);
+    const tryPair = (score) => adds.forEach((add, j) => {
+      if (match[j] >= 0) return;
+      let best = -1, bestSim = 0;
+      dels.forEach((d, k) => { if (!used.has(k)) { const s = score(d, add); if (s > bestSim) { bestSim = s; best = k; } } });
+      if (best >= 0) { used.set(best, j); match[j] = best; }
     });
-    const rows = dels.filter((_, k) => !used.has(k)).map(d => ({ type: 'del', oldText: d }));
-    for (const p of pairs) {
-      rows.push(p.del
-        ? { type: 'mod', oldText: p.del, newText: p.add, words: wordDiff(p.del, p.add) }
-        : { type: 'add', newText: p.add });
-    }
+    // 1) same text up to formatting, 2) same list label, 3) clearly similar, 4) loosely similar
+    tryPair((d, a) => loose(d) === loose(a) ? 1 : 0);
+    tryPair((d, a) => { const x = listLine(d), y = listLine(a); return x && y && norm(x.label) === norm(y.label) ? 1 : 0; });
+    tryPair((d, a) => { const s = similarity(d, a); return s >= 0.45 ? s : 0; });
+    tryPair((d, a) => { const s = similarity(d, a, 2); return s >= 0.25 ? s : 0; });
+
+    const rows = [];
+    let k = 0; // next original-order removal to place
+    const flushDelsBefore = (limit) => {
+      for (; k < limit; k++) if (!used.has(k)) rows.push({ type: 'del', oldText: dels[k] });
+    };
+    adds.forEach((add, j) => {
+      if (match[j] >= 0) { flushDelsBefore(match[j]); rows.push(rowFor(dels[match[j]], add)); }
+      else rows.push({ type: 'add', newText: add });
+    });
+    flushDelsBefore(dels.length);
     return rows;
   }
 
-  function diffResumes(original, tailored, changes, flags) {
-    const a = units(original), b = units(tailored);
+  function diffLines(a, b) {
     const ops = lcsDiff(a, b, (x, y) => norm(x) === norm(y));
     const rows = [];
     let dels = [], adds = [];
@@ -91,6 +170,28 @@
       else adds.push(o.b);
     }
     flush();
+    return rows;
+  }
+
+  function diffResumes(original, tailored, changes, flags) {
+    const A = sections(units(original)), B = sections(units(tailored));
+    const out = [];
+    for (const sb of B) {
+      const sa = A.find(s => s.key === sb.key);
+      const sec = { key: sb.key, title: sb.title, rows: diffLines(sa ? sa.lines : [], sb.lines), isNew: !sa && sb.key !== '_header', renamedFrom: null };
+      if (sa && sa.heading && sb.heading && norm(sa.heading) !== norm(sb.heading)) sec.renamedFrom = titleCase(stripBullet(sa.heading).replace(/[:\s]+$/, ''));
+      out.push(sec);
+    }
+    for (const sa of A) {
+      if (B.some(s => s.key === sa.key)) continue;
+      const sec = { key: sa.key, title: sa.title, rows: diffLines(sa.lines, []), isRemoved: true, renamedFrom: null };
+      const at = A.indexOf(sa);
+      // Put a dropped section after the last kept section that preceded it in the original.
+      let pos = 0;
+      for (let i = at - 1; i >= 0; i--) { const p = out.findIndex(s => s.key === A[i].key); if (p >= 0) { pos = p + 1; break; } }
+      out.splice(pos, 0, sec);
+    }
+    const rows = out.flatMap(s => s.rows);
     rows.forEach(r => { r.notes = []; r.flags = []; });
 
     // Attach each "why" note to the changed row that best contains its replacement excerpt.
@@ -100,7 +201,7 @@
       let best = null, bestScore = 0.55;
       if (target.length) {
         for (const r of rows) {
-          if (r.type !== 'add' && r.type !== 'mod') continue;
+          if (!['add', 'mod', 'list'].includes(r.type)) continue;
           const have = new Set(words(r.newText));
           const score = target.filter(w => have.has(w)).length / target.length;
           if (score > bestScore) { bestScore = score; best = r; }
@@ -108,7 +209,6 @@
       }
       if (best) best.notes.push(c.reason || ''); else unmatched.push(c);
     }
-
     // Attach truth-check flags to the line that contains the flagged claim.
     for (const f of Array.isArray(flags) ? flags : []) {
       const target = words(f.claim || '');
@@ -123,75 +223,141 @@
     }
 
     const count = (t) => rows.filter(r => r.type === t).length;
-    return { rows, unmatched, stats: { modified: count('mod'), added: count('add'), removed: count('del'), unchanged: count('same'), flagged: rows.filter(r => r.flags.length).length } };
+    const stats = {
+      modified: count('mod') + count('list'), added: count('add'), removed: count('del'),
+      formatting: count('fmt'), unchanged: count('same'), flagged: rows.filter(r => r.flags.length).length,
+    };
+    return { sections: out, rows, unmatched, stats };
   }
 
+  // ---- Render ---------------------------------------------------------------
+  // Light edits read best inline (struck + inserted words). Heavy rewrites read best as the
+  // new sentence with additions marked; the old one stays under "Show original".
   function renderWords(ops) {
-    return ops.map(o => o.op === 'eq' ? esc(o.b) : o.op === 'del' ? `<del>${esc(o.a)}</del>` : `<ins>${esc(o.b)}</ins>`).join(' ');
+    const oldCount = ops.filter(o => o.op !== 'add').length || 1;
+    const heavy = ops.filter(o => o.op === 'del').length / oldCount > 0.3;
+    return ops.filter(o => !(heavy && o.op === 'del'))
+      .map(o => o.op === 'eq' ? esc(o.b) : o.op === 'del' ? `<del>${esc(o.a)}</del>` : `<ins>${esc(o.b)}</ins>`).join(' ');
+  }
+  const KIND = { mod: 'Rewritten', list: 'Updated list', add: 'Added', del: 'Removed' };
+
+  function renderRow(r) {
+    const flagged = r.flags.length > 0;
+    const filt = [flagged ? 'verify' : '', r.type === 'list' ? 'mod' : r.type].join(' ');
+    const kind = flagged ? `⚠ ${KIND[r.type] || 'Unchanged'} · check this claim` : (r.type === 'list' ? esc(r.list.label) : KIND[r.type]);
+    let body = '';
+    if (r.type === 'mod') body = `<div class="rd-text">${renderWords(r.words)}</div>`;
+    else if (r.type === 'add') body = `<div class="rd-text"><ins>${esc(stripBullet(r.newText))}</ins></div>`;
+    else if (r.type === 'del') body = `<div class="rd-text rd-removed">${esc(stripBullet(r.oldText))}</div>`;
+    else if (r.type === 'list') {
+      const { added, removed, kept } = r.list;
+      body = `<div class="rd-tokens">${added.map(x => `<span class="rd-tok add">+ ${esc(x)}</span>`).join('')}${removed.map(x => `<span class="rd-tok del">− ${esc(x)}</span>`).join('')}${kept ? `<span class="rd-tok">${kept} kept</span>` : ''}${!added.length && !removed.length ? '<span class="rd-tok">Reordered</span>' : ''}</div>`;
+    } else body = `<div class="rd-text">${esc(stripBullet(r.newText))}</div>`;
+    const why = r.notes.filter(Boolean).map(n => `<div class="rd-why">${esc(n)}</div>`).join('')
+      + r.flags.map(f => `<div class="rd-why rd-flag">${esc(f.issue || 'Not supported by your original resume.')}</div>`).join('');
+    const orig = r.type === 'mod' || r.type === 'list'
+      ? `<details class="rd-orig"><summary>Show original</summary><p>${esc(stripBullet(r.oldText))}</p></details>` : '';
+    return `<div class="rd-row${flagged ? ' flagged' : ''}" data-f="${filt.trim()}"><div class="rd-kind ${r.type}${flagged ? ' verify' : ''}">${kind}</div>${body}${why}${orig}</div>`;
   }
 
-  function renderDiffHTML(diff, { context = 1 } = {}) {
-    const { rows, unmatched, stats } = diff;
-    const changed = rows.map(r => r.type !== 'same');
-    const show = rows.map((_, i) => {
-      for (let k = Math.max(0, i - context); k <= Math.min(rows.length - 1, i + context); k++) if (changed[k]) return true;
-      return false;
-    });
-    const noteHTML = (r) => r.notes.filter(Boolean).map(n => `<div class="rd-why"><span>WHY</span>${esc(n)}</div>`).join('')
-      + (r.flags || []).map(f => `<div class="rd-why rd-flag"><span>CHECK</span>${esc(f.issue)}</div>`).join('');
-    let html = `<div class="rd-stats">
-      <span class="rd-stat mod">${stats.modified} rewritten</span>
-      <span class="rd-stat add">${stats.added} added</span>
-      <span class="rd-stat del">${stats.removed} removed</span>
-      <span class="rd-stat same">${stats.unchanged} unchanged</span>
-      ${stats.flagged ? `<span class="rd-stat flag">⚠ ${stats.flagged} to verify</span>` : ''}
-    </div><div class="rd-body">`;
-    let hidden = 0;
-    const flushHidden = () => { if (hidden) { html += `<div class="rd-skip">··· ${hidden} unchanged line${hidden > 1 ? 's' : ''}</div>`; hidden = 0; } };
-    rows.forEach((r, i) => {
-      if (!show[i]) { hidden++; return; }
-      flushHidden();
-      if (r.type === 'same') html += `<div class="rd-row same${r.flags.length ? ' flagged' : ''}"><span class="rd-gut"> </span><div>${esc(r.newText)}${noteHTML(r)}</div></div>`;
-      else if (r.type === 'del') html += `<div class="rd-row del"><span class="rd-gut">−</span><div><del>${esc(r.oldText)}</del></div></div>`;
-      else if (r.type === 'add') html += `<div class="rd-row add${r.flags.length ? ' flagged' : ''}"><span class="rd-gut">+</span><div><ins>${esc(r.newText)}</ins>${noteHTML(r)}</div></div>`;
-      else html += `<div class="rd-row mod${r.flags.length ? ' flagged' : ''}"><span class="rd-gut">~</span><div>${renderWords(r.words)}${noteHTML(r)}</div></div>`;
-    });
-    flushHidden();
-    html += '</div>';
-    if (unmatched.length) {
-      html += `<div class="rd-other"><div class="rd-other-title">OTHER CHANGES</div>${unmatched.map(c =>
-        `<div class="rd-other-item"><div><del>${esc(c.original)}</del> → <ins>${esc(c.replacement)}</ins></div><div class="rd-why"><span>WHY</span>${esc(c.reason)}</div></div>`).join('')}</div>`;
+  function renderDiffHTML(diff) {
+    const { sections: secs, unmatched, stats } = diff;
+    const total = stats.modified + stats.added + stats.removed;
+    const chip = (f, label, n, cls = '') => n || f === 'all'
+      ? `<button type="button" class="rd-filter ${cls}" data-filter="${f}" aria-pressed="${f === 'all'}" onclick="ResumeDiff.filter(this)">${label} <b>${n}</b></button>` : '';
+    let html = `<div class="rd" data-active="all"><div class="rd-filters" role="group" aria-label="Show changes">
+      ${chip('all', 'All', total)}
+      ${chip('verify', '⚠ To verify', stats.flagged, 'warn')}
+      ${chip('mod', 'Rewritten', stats.modified)}
+      ${chip('add', 'Added', stats.added)}
+      ${chip('del', 'Removed', stats.removed)}
+    </div>`;
+    if (!total && !stats.formatting) html += `<div class="rd-empty">No changes. The tailored resume matches your original.</div>`;
+    for (const s of secs) {
+      const changed = s.rows.filter(r => !['same', 'fmt'].includes(r.type));
+      const fmt = s.rows.filter(r => r.type === 'fmt');
+      if (!changed.length && !fmt.length && !s.renamedFrom) continue;
+      const n = (t) => s.rows.filter(r => r.type === t || (t === 'mod' && r.type === 'list')).length;
+      const bits = [
+        s.isNew ? 'New section' : s.isRemoved ? 'Section removed' : '',
+        s.renamedFrom ? `Renamed from “${esc(s.renamedFrom)}”` : '',
+        n('mod') ? `${n('mod')} rewritten` : '', n('add') ? `${n('add')} added` : '', n('del') && !s.isRemoved ? `${n('del')} removed` : '',
+        s.rows.some(r => r.flags.length) ? `${s.rows.filter(r => r.flags.length).length} to verify` : '',
+        n('same') ? `${n('same')} unchanged` : '',
+      ].filter(Boolean).join(' · ');
+      html += `<section class="rd-sec"><div class="rd-sec-head"><span class="rd-sec-name">${esc(s.title)}</span><span class="rd-sec-sum">${bits}</span></div>`;
+      html += changed.map(renderRow).join('');
+      if (fmt.length) html += `<details class="rd-fmt" data-f="fmt"><summary>${fmt.length} formatting-only change${fmt.length > 1 ? 's' : ''} (spacing, case, punctuation)</summary>${fmt.map(r => `<div class="rd-fmt-line">${esc(stripBullet(r.newText))}</div>`).join('')}</details>`;
+      html += `</section>`;
     }
-    return html;
+    if (unmatched.length) {
+      html += `<section class="rd-sec" data-f="mod"><div class="rd-sec-head"><span class="rd-sec-name">Other changes</span><span class="rd-sec-sum">Edits the AI described that we couldn't place on a line</span></div>${unmatched.map(c =>
+        `<div class="rd-row" data-f="mod"><div class="rd-text"><del>${esc(c.original)}</del> → <ins>${esc(c.replacement)}</ins></div>${c.reason ? `<div class="rd-why">${esc(c.reason)}</div>` : ''}</div>`).join('')}</section>`;
+    }
+    return html + '</div>';
+  }
+
+  // Filter chips: show only rows of one kind, hide sections left empty.
+  function filter(btn) {
+    const root = btn.closest('.rd');
+    const f = btn.dataset.filter;
+    root.querySelectorAll('.rd-filter').forEach(b => b.setAttribute('aria-pressed', String(b === btn)));
+    root.querySelectorAll('.rd-sec').forEach(sec => {
+      let any = false;
+      sec.querySelectorAll('.rd-row').forEach(r => {
+        const on = f === 'all' || r.dataset.f.split(' ').includes(f);
+        r.hidden = !on; any = any || on;
+      });
+      sec.querySelectorAll('.rd-fmt').forEach(d => { d.hidden = f !== 'all'; });
+      sec.hidden = !any && !(f === 'all' && sec.querySelector('.rd-fmt, .rd-sec-sum'));
+    });
   }
 
   // Styles shared by every page that shows a diff.
   const css = `
-  .rd-stats{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:16px;}
-  .rd-stat{font-size:12px;letter-spacing:1px;padding:4px 10px;border-radius:20px;border:1px solid var(--border-light);color:var(--muted);}
-  .rd-stat.mod{color:var(--blue);border-color:rgba(var(--blue-rgb),0.3);} .rd-stat.add{color:var(--accent);border-color:rgba(var(--accent-rgb),0.3);} .rd-stat.del{color:var(--danger);border-color:rgba(var(--danger-rgb),0.3);}
-  .rd-body{font-size:14px;line-height:1.7;}
-  .rd-row{display:grid;grid-template-columns:18px 1fr;gap:8px;padding:5px 8px;border-radius:6px;margin-bottom:2px;word-break:break-word;}
-  .rd-row.same{color:var(--c-777);} .rd-row.add{background:rgba(var(--accent-rgb),0.05);} .rd-row.del{background:rgba(var(--danger-rgb),0.05);} .rd-row.mod{background:rgba(var(--blue-rgb),0.05);color:var(--c-ccc);}
-  .rd-gut{color:var(--muted);text-align:center;user-select:none;} .rd-row.add .rd-gut{color:var(--accent);} .rd-row.del .rd-gut{color:var(--danger);} .rd-row.mod .rd-gut{color:var(--blue);}
-  .rd-body ins,.rd-other ins{text-decoration:none;color:var(--accent);background:rgba(var(--accent-rgb),0.12);border-radius:3px;padding:0 2px;}
-  .rd-body del,.rd-other del{color:var(--c-ff9090);background:rgba(var(--danger-rgb),0.1);border-radius:3px;padding:0 2px;}
-  .rd-why{margin-top:6px;font-size:13px;color:var(--c-9a9ab0);line-height:1.5;display:flex;gap:8px;align-items:baseline;}
-  .rd-why span{font-size:11px;letter-spacing:1.5px;color:var(--warn);border:1px solid rgba(var(--warn-rgb),0.3);border-radius:4px;padding:1px 5px;flex-shrink:0;}
-  .rd-stat.flag{color:var(--danger);border-color:rgba(var(--danger-rgb),0.4);background:rgba(var(--danger-rgb),0.06);}
-  .rd-row.flagged{box-shadow:inset 3px 0 0 var(--danger);}
-  .rd-flag{color:var(--c-ffb0b0);} .rd-flag span{color:var(--danger);border-color:rgba(var(--danger-rgb),0.4);}
-  .rd-skip{font-size:12px;color:var(--c-555);padding:4px 34px;letter-spacing:1px;}
-  .rd-other{margin-top:20px;padding-top:16px;border-top:1px solid var(--border);}
-  .rd-other-title{font-size:11px;letter-spacing:2px;color:var(--muted);margin-bottom:10px;}
-  .rd-other-item{font-size:13px;padding:8px 0;border-bottom:1px solid var(--border);color:var(--c-bbb);word-break:break-word;}`;
+  .rd{display:flex;flex-direction:column;gap:14px;}
+  .rd-filters{display:flex;flex-wrap:wrap;gap:8px;}
+  .rd-filter{height:28px;padding:0 12px;border-radius:999px;border:1px solid var(--border-light);background:none;color:var(--muted);font-family:var(--font-ui);font-size:12px;cursor:pointer;display:inline-flex;align-items:center;gap:6px;}
+  .rd-filter b{color:var(--text);font-weight:500;}
+  .rd-filter:hover{color:var(--text);}
+  .rd-filter[aria-pressed="true"]{background:var(--surface-2);border-color:var(--muted);color:var(--text);}
+  .rd-filter.warn,.rd-filter.warn b{color:var(--warn);}
+  .rd-filter:focus-visible,.rd summary:focus-visible{outline:2px solid var(--accent);outline-offset:2px;}
+  .rd-empty{color:var(--muted);font-size:14px;padding:20px 0;text-align:center;}
+  .rd-sec{border:1px solid var(--border);border-radius:12px;background:var(--surface);overflow:hidden;}
+  .rd-sec[hidden],.rd-row[hidden],.rd-fmt[hidden]{display:none;}
+  .rd-sec-head{display:flex;align-items:baseline;gap:12px;flex-wrap:wrap;padding:12px 16px;border-bottom:1px solid var(--border);}
+  .rd-sec-name{font-family:var(--font-display);font-weight:700;font-size:15px;color:var(--c-fff);}
+  .rd-sec-sum{font-size:12px;color:var(--muted);}
+  .rd-row{padding:14px 16px;border-bottom:1px solid var(--border);display:flex;flex-direction:column;gap:6px;word-break:break-word;}
+  .rd-row:last-child{border-bottom:0;}
+  .rd-kind{font-size:11px;letter-spacing:1px;text-transform:uppercase;color:var(--muted);}
+  .rd-kind.add{color:var(--accent);} .rd-kind.del{color:var(--danger);} .rd-kind.verify{color:var(--warn);}
+  .rd-text{font-family:var(--font-doc);font-size:14px;line-height:1.65;color:var(--text);max-width:80ch;}
+  .rd ins{text-decoration:none;color:var(--accent);background:rgba(var(--accent-rgb),0.1);box-shadow:inset 0 -1px 0 rgba(var(--accent-rgb),0.45);border-radius:2px;padding:0 1px;}
+  .rd del{color:var(--c-ff9090);text-decoration-color:rgba(var(--danger-rgb),0.6);}
+  .rd-text.rd-removed{color:var(--muted);text-decoration:line-through;text-decoration-color:rgba(var(--danger-rgb),0.6);}
+  .rd-tokens{display:flex;flex-wrap:wrap;gap:6px;}
+  .rd-tok{font-size:12px;padding:2px 9px;border-radius:999px;border:1px solid var(--border-light);color:var(--muted);}
+  .rd-tok.add{color:var(--accent);border-color:rgba(var(--accent-rgb),0.35);background:rgba(var(--accent-rgb),0.06);}
+  .rd-tok.del{color:var(--danger);border-color:rgba(var(--danger-rgb),0.35);background:rgba(var(--danger-rgb),0.06);}
+  .rd-why{font-size:12px;line-height:1.5;color:var(--muted);}
+  .rd-why.rd-flag{color:var(--warn);}
+  .rd-row.flagged{background:rgba(var(--warn-rgb),0.04);}
+  .rd-orig summary,.rd-fmt summary{cursor:pointer;font-size:12px;color:var(--muted);list-style:none;width:fit-content;}
+  .rd-orig summary::-webkit-details-marker,.rd-fmt summary::-webkit-details-marker{display:none;}
+  .rd-orig summary::after,.rd-fmt summary::after{content:' ▸';} .rd-orig[open] summary::after,.rd-fmt[open] summary::after{content:' ▾';}
+  .rd-orig summary:hover,.rd-fmt summary:hover{color:var(--text);}
+  .rd-orig p{margin:6px 0 0;padding-left:12px;border-left:2px solid var(--border-light);font-family:var(--font-doc);font-size:13px;line-height:1.6;color:var(--muted);}
+  .rd-fmt{padding:12px 16px;}
+  .rd-fmt-line{font-family:var(--font-doc);font-size:13px;line-height:1.6;color:var(--muted);padding:4px 0 0 12px;}`;
   if (typeof document !== 'undefined') {
     const style = document.createElement('style');
     style.textContent = css;
     document.head.appendChild(style);
   }
 
-  const api = { diffResumes, renderDiffHTML, units, esc };
+  const api = { diffResumes, renderDiffHTML, filter, units, sections, esc };
   if (typeof window !== 'undefined') window.ResumeDiff = api;
   if (typeof module !== 'undefined') module.exports = api;
 })();

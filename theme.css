@@ -5,6 +5,7 @@
   --font-ui: 'DM Mono', monospace;
   --font-display: 'Syne', sans-serif;
   --font-mono: 'DM Mono', monospace;
+  --font-doc: 'IBM Plex Sans', system-ui, sans-serif; /* resume and letter text */
 
   /* Original Resumatch palette */
   --bg: #08080f;          --bg-rgb: 8, 8, 15;
