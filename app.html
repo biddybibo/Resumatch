@@ -120,6 +120,16 @@
     .strength-check { color:var(--accent); font-size:14px; margin-top:2px; flex-shrink:0; }
     .strength-text { font-size:14px; color:var(--c-bbb); line-height:1.5; }
     .keyword-tags { display:flex; flex-wrap:wrap; gap:8px; }
+    .miss-list { list-style:none; margin:0; padding:0; display:flex; flex-direction:column; gap:2px; width:100%; }
+    .miss-list li { position:relative; padding:5px 0 5px 16px; font-size:13px; line-height:1.4; color:var(--text); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    .miss-list li::before { content:''; position:absolute; left:2px; top:11px; width:6px; height:6px; border-radius:50%; background:var(--warn); }
+    .miss-more { margin-top:8px; background:none; border:0; padding:0; color:var(--accent); font-family:var(--font-ui); font-size:12px; cursor:pointer; text-align:left; }
+    .miss-more:hover { text-decoration:underline; }
+    .miss-none { font-size:13px; color:var(--accent); }
+    .rm-job-info { display:flex; align-items:center; gap:16px; flex:1; min-width:240px; flex-wrap:wrap; }
+    .rm-job-actions { display:flex; gap:8px; flex-wrap:wrap; margin-left:auto; }
+    .rm-job-actions .btn-ghost, .rm-job-actions .btn-save { display:inline-flex; align-items:center; text-decoration:none; padding:9px 16px; font-size:13px; }
+    .rm-job-actions .btn-save { font-weight:500; }
     .keyword-tag { background:rgba(var(--warn-rgb),0.08); border:1px solid rgba(var(--warn-rgb),0.2); color:var(--warn); font-size:13px; padding:4px 10px; border-radius:20px; }
     .tabs-wrapper { overflow:hidden; }
     .tab-bar { border-bottom:1px solid var(--border); padding:10px 16px; display:flex; align-items:center; gap:4px; }
@@ -129,7 +139,13 @@
     .copy-btn { background:var(--border); border:1px solid var(--border-light); color:var(--muted); font-family:var(--font-ui); font-size:13px; letter-spacing:1px; padding:6px 14px; border-radius:6px; cursor:pointer; transition:all 0.2s; }
     .copy-btn:hover { border-color:var(--accent); color:var(--accent); }
     .copy-btn.copied { border-color:var(--accent); color:var(--accent); background:rgba(var(--accent-rgb),0.08); }
-    .tab-content { padding:24px 28px; max-height:calc(100vh - 150px); min-height:440px; overflow-y:auto; }
+    .tab-content { padding:24px 28px; min-height:520px; flex:1; }
+    /* The results panel fills the row next to the sidebar (no empty space beside it);
+       long content flows with the page and the tab bar stays in view. */
+    .result-layout { align-items:stretch !important; }
+    .result-layout .result-grid { position:static; align-self:start; }
+    .result-layout .tabs-wrapper { display:flex; flex-direction:column; overflow:visible; }
+    .result-layout .tab-bar { position:sticky; top:56px; z-index:5; background:var(--surface); border-radius:14px 14px 0 0; }
     .tab-content::-webkit-scrollbar{width:5px;} .tab-content::-webkit-scrollbar-thumb{background:var(--border-light);border-radius:3px;}
     #tab-tailored{display:block;} #tab-changes{display:none;}
     pre { font-family:var(--font-ui); font-size:14px; line-height:1.85; color:var(--c-ccc); white-space:pre-wrap; word-break:break-word; }
@@ -353,7 +369,14 @@
     </div>
   </div>
   <div id="result-screen">
-    <div class="rm-job fade-in" id="job-bar"></div>
+    <div class="rm-job fade-in" id="job-bar">
+      <div class="rm-job-info" id="job-bar-info"></div>
+      <div class="rm-job-actions">
+        <button class="btn-ghost" onclick="reset()">← Start over</button>
+        <a href="/cover" id="cl-link" class="btn-ghost">Write cover letter →</a>
+        <button class="btn-save" id="save-pipeline-btn" onclick="saveToPipeline()">+ Save to pipeline</button>
+      </div>
+    </div>
     <div class="result-layout">
     <div class="result-grid fade-in">
       <div class="card score-card">
@@ -398,11 +421,6 @@
         <div id="tab-truth"></div>
       </div>
     </div>
-    </div>
-    <div class="result-footer fade-in" style="gap:12px;justify-content:flex-end;">
-      <button class="btn-ghost" onclick="reset()">← Start over</button>
-      <a href="/cover" id="cl-link" class="btn-ghost" style="text-decoration:none;display:inline-flex;align-items:center;">Write cover letter →</a>
-      <button class="btn-save" id="save-pipeline-btn" onclick="saveToPipeline()">+ Save to pipeline</button>
     </div>
   </div>
 </div>
@@ -863,6 +881,16 @@
 
   const esc = ResumeDiff.esc;
 
+  // Short list, not a wall of pills: the first few, the rest one click away in Gaps.
+  function renderMissing(items) {
+    const el = document.getElementById('keywords-list');
+    const SHOW = 5;
+    el.innerHTML = items.length
+      ? `<ul class="miss-list">${items.slice(0, SHOW).map(k => `<li title="${esc(k)}">${esc(k)}</li>`).join('')}</ul>` +
+        `<button type="button" class="miss-more" onclick="showTab('gaps')">${items.length > SHOW ? `+${items.length - SHOW} more · ` : ''}See all in Gaps →</button>`
+      : '<div class="miss-none">✓ Every requirement is named in the tailored resume.</div>';
+  }
+
   function renderResult(r){
     const a = r.analysis;
     renderScore(r);
@@ -878,11 +906,11 @@
         <div class="cov-track"><div class="cov-fill after" style="width:0%" data-w="${pa}"></div><div class="cov-fill before" style="width:${pb}%"></div></div>
         ${a.requirements.some(q => !q.inTailored) ? '<div class="cov-sub">STILL MISSING</div>' : ''}`;
       requestAnimationFrame(() => setTimeout(() => cov.querySelector('.cov-fill.after').style.width = pa + '%', 50));
-      document.getElementById('keywords-list').innerHTML = a.requirements.filter(q => !q.inTailored).map(q => `<span class="keyword-tag">${esc(q.skill)}</span>`).join('');
+      renderMissing(a.requirements.filter(q => !q.inTailored).map(q => q.skill));
     } else {
       document.getElementById('kw-title').textContent = 'KEYWORDS TO ADDRESS';
       cov.innerHTML = '';
-      document.getElementById('keywords-list').innerHTML=(r.missingKeywords||[]).map(k=>`<span class="keyword-tag">${esc(k)}</span>`).join('');
+      renderMissing(r.missingKeywords || []);
     }
 
     document.getElementById('tailored-text').textContent=r.tailoredResume||'';
@@ -913,7 +941,7 @@
   // ── Job link import ──────────────────────────────────────────────────────
   // The job this result is for, shown above the results.
   function renderJobBar() {
-    const bar = document.getElementById('job-bar');
+    const bar = document.getElementById('job-bar-info');
     const r = lastRun?.result; if (!bar || !r) return;
     const a = r.analysis || {};
     const firstLine = (lastRun.job || '').split('\n').map(l => l.trim()).find(Boolean) || 'Untitled role';
@@ -1136,7 +1164,26 @@
     btn.disabled = true; btn.textContent = 'Saving…';
     try {
       const firstLine = job.split('\n').map(l => l.trim()).find(Boolean) || 'Untitled role';
-      const app = await store.create({
+      // Same job already on the board (e.g. you wrote its cover letter first)? Add to that card.
+      const existing = Pipeline.findMatch(await store.list(), { jobUrl: lastRun.jobUrl, jobDescription: job, company: r.analysis?.company, role: r.analysis?.role });
+      const resumeFields = {
+        truthCheck: lastRun.truth || null,
+        originalResume: resume,
+        tailoredResume: r.tailoredResume || '',
+        fitScore: r.fitScore ?? null,
+        matchScoreBefore: 'fitScore' in r ? (r.keywordBefore ?? null) : (r.originalScore ?? null),
+        matchScoreAfter: 'fitScore' in r ? (r.keywordAfter ?? null) : (r.matchScore ?? null),
+        analysis: r.analysis || {},
+        changes: r.changes || [],
+      };
+      const app = existing ? await store.update(existing.id, {
+        ...resumeFields,
+        company: existing.company || r.analysis?.company || '',
+        role: existing.role || r.analysis?.role || firstLine.slice(0, 80),
+        jobUrl: existing.jobUrl || lastRun.jobUrl || '',
+        jobDescription: existing.jobDescription || job,
+        activity: [...(existing.activity || []), { at: new Date().toISOString(), type: 'tailored' }]
+      }) : await store.create({
         company: r.analysis?.company || '',
         role: r.analysis?.role || firstLine.slice(0, 80),
         status: 'saved',
@@ -1157,7 +1204,9 @@
       updateHistory(lastRun.historyId, { appId: app.id });
       markSaved(app.id);
       const where = store.mode === 'cloud' ? 'to your account' : 'on this device';
-      showToast(`Saved ${where}.<a href="/pipeline?open=${encodeURIComponent(app.id)}">Open pipeline →</a>`);
+      showToast(existing
+        ? `Added to your existing ${esc(app.company || 'pipeline')} card.<a href="/pipeline?open=${encodeURIComponent(app.id)}">Open pipeline →</a>`
+        : `Saved ${where}.<a href="/pipeline?open=${encodeURIComponent(app.id)}">Open pipeline →</a>`);
     } catch (e) {
       btn.disabled = false; btn.textContent = '+ Save to pipeline';
       showToast('Could not save. Please try again.');

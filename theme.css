@@ -267,3 +267,12 @@ html { overflow-x: clip; }
    (A pinned header lets iOS 26 Safari show page content behind the status bar.) */
 @media (max-width: 700px) { nav { position: relative !important; } }
 html { background-color: var(--bg); }
+@media (max-width: 700px) {
+  .rm-job-actions { width: 100%; margin-left: 0; display: grid; grid-template-columns: 1fr 1fr; }
+  .rm-job-actions .btn-save { grid-column: 1 / -1; order: -1; justify-content: center; min-height: 44px; }
+  .rm-job-actions .btn-ghost { justify-content: center; }
+}
+@media (max-width: 700px) { .result-layout .tab-bar { top: 0; } .result-layout .tab-content { min-height: 0; max-height: none; } }
+@media (max-width: 1000px) { .result-layout { grid-template-columns: minmax(0, 1fr) !important; } .result-layout > * { min-width: 0; } }
+@media (max-width: 700px) { .rm-job-actions .btn-ghost { white-space: nowrap; font-size: 12px; padding: 9px 10px; } }
+@media (max-width: 700px) { .result-layout .result-grid { grid-template-columns: minmax(0, 1fr) !important; } .result-layout .result-grid > * { min-width: 0; } }
