@@ -53,6 +53,28 @@ async function searchCompanyInfo(companyName) {
   }
 }
 
+// Pull the letter out of the model's reply. The prompt asks for LETTER_START/LETTER_END
+// markers, but the model sometimes bolds them, adds spaces, or skips them entirely.
+export function extractLetter(text) {
+  const t = String(text || '');
+  const START = /\**\s*LETTER[\s_-]*START\s*\**:?/i;
+  const END = /\**\s*LETTER[\s_-]*END\s*\**/i;
+  let body = null;
+  const s = t.search(START);
+  if (s !== -1) {
+    const rest = t.slice(s).replace(START, '');
+    const e = rest.search(END);
+    body = e !== -1 ? rest.slice(0, e) : rest.split(/```|PART\s*2/i)[0];
+  } else {
+    // No markers: take everything before the JSON part, from the salutation on.
+    const before = t.split(/```|\**\s*PART\s*2/i)[0];
+    const dear = before.search(/^\s*(Dear|Hello|Hi|To whom)\b/im);
+    body = dear !== -1 ? before.slice(dear) : null;
+  }
+  body = (body || '').replace(/^\s*\**\s*PART\s*1[^\n]*\n/i, '').trim();
+  return body.length >= 80 ? body : null;
+}
+
 export default async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
@@ -175,18 +197,20 @@ ${jobDescription}${companyContext}`
       }
     }
 
-    const letterMatch = fullText.match(/LETTER_START\s*([\s\S]*?)\s*LETTER_END/) ||
-                        fullText.match(/LETTER_START\s*([\s\S]+)$/);
-    if (!letterMatch) throw new Error('Failed to parse cover letter response');
+    const letterText = extractLetter(fullText);
+    if (!letterText) {
+      console.error('coverletter: unparseable response:', JSON.stringify(fullText.slice(0, 400)));
+      throw new Error('The letter came back in an unexpected format. Please try again.');
+    }
 
-    const jsonBlockMatch = fullText.match(/```json\s*([\s\S]*?)```/i);
+    const jsonBlockMatch = fullText.match(/```(?:json)?\s*(\{[\s\S]*?\})\s*```/i);
     let meta = { strengths: [], keywords: [], recipient: {} };
     if (jsonBlockMatch) {
       try { meta = JSON.parse(jsonBlockMatch[1].trim()); } catch { /* use defaults */ }
     }
 
     // Strip any dash lines from letter text
-    const cleanLetter = letterMatch[1].trim()
+    const cleanLetter = letterText
       .split('\n')
       .filter(l => !/^[\-–—=*#~\s]{2,}$/.test(l))
       .join('\n');

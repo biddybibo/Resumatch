@@ -282,3 +282,12 @@ html { background-color: var(--bg); }
 .rm-file-meta { min-width: 0; overflow: hidden; text-overflow: ellipsis; flex-shrink: 1; max-width: 45%; }
 .rm-file-name { flex: 1 1 auto; }
 .rm-file button { flex: none; }
+
+/* Text selection: off for page chrome (headings, labels, buttons, stats), on where
+   people copy or type: form fields, results, letters, the pipeline drawer. */
+body { -webkit-user-select: none; user-select: none; }
+input, textarea, select, [contenteditable="true"],
+pre, .rm-paper, .tab-content, .letter-body, .d-pane, .error-banner, .url-status, .selectable {
+  -webkit-user-select: text; user-select: text;
+}
+.tab-content button, .d-pane button, .tab-content .copy-btn { -webkit-user-select: none; user-select: none; }

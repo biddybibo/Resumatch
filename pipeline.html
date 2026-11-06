@@ -108,7 +108,7 @@
     .stage.done { color:var(--c-bbb); background:rgba(var(--fg-rgb),0.03); }
     .stage.current { color:var(--on-accent); font-weight:500; }
     .d-scroll { flex:1; overflow-y:auto; padding:20px 24px 32px; }
-    .d-grid { display:grid; grid-template-columns:1fr 1fr; gap:14px; margin-bottom:18px; }
+    .d-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:14px; margin-bottom:18px; }
     .field-label { font-size:11px; letter-spacing:2px; color:var(--muted); margin-bottom:6px; display:block; }
     .input { width:100%; background:var(--inset-3); border:1px solid var(--border); border-radius:8px; color:var(--text); padding:9px 11px; font-size:14px; }
     .input:focus { outline:none; border-color:var(--accent); }

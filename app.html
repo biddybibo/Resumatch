@@ -325,7 +325,7 @@
           <textarea id="resume-input" placeholder="Paste your current resume here...&#10;&#10;• Work experience&#10;• Skills&#10;• Education&#10;• Accomplishments" oninput="updateCount('resume-input','resume-count')"></textarea>
           <div class="char-count"><span id="resume-count">0</span> chars</div>
         </div>
-        <div class="rm-hint" id="resume-remembered" hidden>Using your resume from last time. <button type="button" onclick="clearInput('resume')">Use a different one</button></div>
+        <div class="rm-hint" id="resume-remembered" hidden>Using the resume you added earlier. <button type="button" onclick="clearInput('resume')">Use a different one</button></div>
         <input type="file" id="resume-file" accept=".pdf,.doc,.docx,.txt" style="display:none" onchange="handleFileUpload(event, 'resume')">
       </div>
       <div class="card input-card" id="job-card">
@@ -565,12 +565,15 @@
     setMode(kind, kind === 'job' ? 'link' : 'upload');
     saveDraft();
   }
-  // Returning users start from the resume they tailored last time.
+  // Within one visit (e.g. after Start over), reuse the resume already added this session.
+  // A fresh launch starts with an empty box.
   function applyRememberedResume() {
     const el = document.getElementById('resume-input');
-    if (!el.value.trim()) {
-      const last = readHistory().find(e => e.originalResume);
-      if (last) { el.value = last.originalResume; updateCount('resume-input', 'resume-count'); document.getElementById('resume-remembered').hidden = false; }
+    let sessionResume = '';
+    try { sessionResume = sessionStorage.getItem('rm_session_resume') || ''; } catch {}
+    if (!el.value.trim() && sessionResume.trim()) {
+      el.value = sessionResume; updateCount('resume-input', 'resume-count');
+      document.getElementById('resume-remembered').hidden = false;
     }
     setMode('resume', el.value.trim() ? 'paste' : 'upload');
   }
@@ -1745,20 +1748,26 @@
     try { localStorage.setItem('rm_fit_cache', JSON.stringify(Object.fromEntries(keep))); } catch { /* storage full */ }
   }
 
-  // ── Keep the page as you left it: the current result and any typed inputs ──
-  const setCurrent = (id) => { try { localStorage.setItem('rm_current', String(id)); } catch {} };
-  const clearCurrent = () => { try { localStorage.removeItem('rm_current'); } catch {} };
+  // ── Keep the page as you left it while you move between pages ──
+  // sessionStorage: survives switching pages and reloads in this tab, but a fresh
+  // launch (new tab or browser) starts empty. History stays in localStorage.
+  try { localStorage.removeItem('rm_draft'); localStorage.removeItem('rm_current'); } catch {} // older versions kept these forever
+  const setCurrent = (id) => { try { sessionStorage.setItem('rm_current', String(id)); } catch {} };
+  const clearCurrent = () => { try { sessionStorage.removeItem('rm_current'); } catch {} };
   const DRAFT_FIELDS = { resume: 'resume-input', job: 'job-input', url: 'job-url' };
   function saveDraft() {
     const d = {};
     for (const [k, id] of Object.entries(DRAFT_FIELDS)) d[k] = document.getElementById(id).value;
-    try { localStorage.setItem('rm_draft', JSON.stringify(d)); } catch {}
+    try {
+      sessionStorage.setItem('rm_draft', JSON.stringify(d));
+      if (d.resume.trim()) sessionStorage.setItem('rm_session_resume', d.resume);
+    } catch {}
   }
-  const clearDraft = () => { try { localStorage.removeItem('rm_draft'); } catch {} };
+  const clearDraft = () => { try { sessionStorage.removeItem('rm_draft'); } catch {} };
 
   (function restoreState() {
     let draft = null;
-    try { draft = JSON.parse(localStorage.getItem('rm_draft') || 'null'); } catch {}
+    try { draft = JSON.parse(sessionStorage.getItem('rm_draft') || 'null'); } catch {}
     if (draft) {
       for (const [k, id] of Object.entries(DRAFT_FIELDS)) {
         const el = document.getElementById(id);
@@ -1767,7 +1776,6 @@
       lastJobUrl = draft.url || '';
       updateCount('resume-input', 'resume-count'); updateCount('job-input', 'job-count');
     }
-    // Returning users: start from the resume they used last time.
     applyRememberedResume();
     setMode('job', document.getElementById('job-input').value.trim() ? 'paste' : 'link');
     updateSteps();
@@ -1775,7 +1783,7 @@
     window.addEventListener('pagehide', saveDraft); // also catches file uploads and link imports
 
     let cur = null;
-    try { cur = Number(localStorage.getItem('rm_current')); } catch {}
+    try { cur = Number(sessionStorage.getItem('rm_current')); } catch {}
     const entry = cur && readHistory().find(e => e.id === cur && e.result);
     if (!entry) return;
     openFromHistory(entry.id);
